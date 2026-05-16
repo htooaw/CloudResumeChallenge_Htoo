@@ -1,0 +1,38 @@
+stages:
+  - build
+  - deploy
+
+variables:  
+  AWS_DEFAULT_REGION: ap-southeast-1
+  S3_BUCKET: h4wops.com
+  ROLE_ARN: arn:aws:iam::111111111111:role/gitlab_ci_deploy
+  AUD: https://gitlab.com
+  BUILD_OUTPUT: portfolio/out
+
+build_site:
+  stage: build
+  image: node:lts-alpine
+  script:
+    - cd portfolio
+    - npm install
+    - npm run build
+  artifacts:
+    paths:
+      - portfolio/out
+
+deploy_site:
+  stage: deploy
+  image: 
+    name: amazon/aws-cli:latest
+    entrypoint: [""]
+  id_tokens:
+    aws_token:
+      aud: $AUD
+  script:
+  - echo "$AWS_TOKEN" > /tmp/oidc_token
+  - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/oidc_token
+  - export AWS_ROLE_ARN="$ROLE_ARN"
+  - aws sts get-caller-identity   # sanity check: prints the assumed role
+  - aws s3 sync ./portfolio/out s3://$S3_BUCKET/ --delete
+  rules:
+  - if: $CI_COMMIT_BRANCH == "main"
