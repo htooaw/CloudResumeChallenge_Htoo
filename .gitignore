@@ -1,0 +1,23 @@
+# Node
+node_modules/
+.next/
+out/
+
+# Terraform
+**/.terraform/
+**/.terraform.lock.hcl
+**/terraform.tfstate
+**/terraform.tfstate.backup
+*.tfvars
+.terraform.tfstate.lock.info
+
+# Secrets and env
+.env
+.env.local
+*.pem
+*.key
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
