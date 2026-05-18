@@ -10,7 +10,12 @@ terraform {
 provider "aws" {
   region  = "ap-southeast-1"
   profile = "haw-sandbox"
+}
 
+provider "aws" {
+  region  = "us-east-1"
+  profile = "haw-sandbox"
+  alias   = "us-east-1"
 }
 
 
