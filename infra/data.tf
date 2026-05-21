@@ -6,10 +6,6 @@ data "tls_certificate" "gitlab" {
 }
 
 
-data "aws_route53_zone" "main" {
-  name         = "htooaungwin.com"
-  private_zone = false
-}
 output "current_account_id" {
   value = data.aws_caller_identity.current.account_id
 }
