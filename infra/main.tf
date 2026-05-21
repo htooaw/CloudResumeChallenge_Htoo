@@ -18,35 +18,44 @@ resource "aws_s3_bucket_website_configuration" "cloud_resume_challenge_website" 
 }
 
 
-resource "aws_s3_bucket_public_access_block" "cloud_resume_challenge_public_access" {
+resource "aws_s3_bucket_public_access_block" "cloudfront_read_only" {
   bucket = aws_s3_bucket.cloud_resume_challenge_bucket.id
 
-  block_public_acls       = false
-  block_public_policy     = false
-  ignore_public_acls      = false
-  restrict_public_buckets = false
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 
 }
 
-resource "aws_s3_bucket_policy" "allow_access_from_public" {
+resource "aws_s3_bucket_policy" "cloudfront_read_only" {
   bucket = aws_s3_bucket.cloud_resume_challenge_bucket.id
-  policy = data.aws_iam_policy_document.allow_access_from_public.json
+  policy = data.aws_iam_policy_document.cloudfront_read_only.json
 
-  depends_on = [aws_s3_bucket_public_access_block.cloud_resume_challenge_public_access]
+  depends_on = [aws_s3_bucket_public_access_block.cloudfront_read_only]
 }
 
-data "aws_iam_policy_document" "allow_access_from_public" {
+data "aws_iam_policy_document" "cloudfront_read_only" {
   statement {
     principals {
-      type        = "*"
-      identifiers = ["*"]
+      type        = "Service"
+      identifiers = ["cloudfront.amazonaws.com"]
     }
+
+    condition {
+      test     = "StringEquals"
+      variable = "AWS:SourceArn"
+      values   = [aws_cloudfront_distribution.site.arn]
+    }
+
     actions = [
       "s3:GetObject",
     ]
-
+  
     resources = [
       "${aws_s3_bucket.cloud_resume_challenge_bucket.arn}/*",
     ]
   }
 }
+
+
