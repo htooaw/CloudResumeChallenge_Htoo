@@ -51,7 +51,7 @@ data "aws_iam_policy_document" "cloudfront_read_only" {
     actions = [
       "s3:GetObject",
     ]
-  
+
     resources = [
       "${aws_s3_bucket.cloud_resume_challenge_bucket.arn}/*",
     ]

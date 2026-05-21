@@ -68,6 +68,11 @@ resource "aws_cloudfront_distribution" "site" {
 
     viewer_protocol_policy = "redirect-to-https"
     cache_policy_id        = "658327ea-f89d-4fab-a63d-7e88639e58f6" # AWS-managed: CachingOptimized
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.url_rewrite.arn
+    }
   }
 
 
@@ -81,6 +86,21 @@ resource "aws_cloudfront_distribution" "site" {
     acm_certificate_arn      = aws_acm_certificate_validation.site.certificate_arn
     ssl_support_method       = "sni-only"
     minimum_protocol_version = "TLSv1.2_2021"
+  }
+
+
+  custom_error_response {
+    error_code            = 403
+    response_code         = 200
+    response_page_path    = "/index.html"
+    error_caching_min_ttl = 10
+  }
+
+  custom_error_response {
+    error_code            = 404
+    response_code         = 200
+    response_page_path    = "/index.html"
+    error_caching_min_ttl = 10
   }
 }
 
@@ -98,4 +118,29 @@ resource "aws_route53_record" "site" {
     zone_id                = aws_cloudfront_distribution.site.hosted_zone_id
     evaluate_target_health = false
   }
+}
+
+resource "aws_cloudfront_function" "url_rewrite" {
+  name    = "url-rewrite"
+  runtime = "cloudfront-js-2.0"
+  publish = true
+  code    = <<-EOF
+
+    function handler(event) {
+  var request = event.request;
+  var uri = request.uri;
+  
+  // Rule 1: trailing slash
+  if (uri.endsWith('/')) {
+    request.uri = uri + 'index.html';
+  }
+  // Rule 2: no extension, no trailing slash
+  else if (!uri.includes('.')) {
+    request.uri = uri + '/index.html';
+  }
+  // Rule 3: has extension, leave alone (implicit)
+  
+  return request;
+}
+EOF
 }
