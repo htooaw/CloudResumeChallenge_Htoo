@@ -3,19 +3,19 @@ resource "aws_s3_bucket" "cloud_resume_challenge_bucket" {
   bucket = "h4wops.com"
 }
 
+# Dead code because of the cloudfront integration
+# resource "aws_s3_bucket_website_configuration" "cloud_resume_challenge_website" {
+#   bucket = aws_s3_bucket.cloud_resume_challenge_bucket.id
 
-resource "aws_s3_bucket_website_configuration" "cloud_resume_challenge_website" {
-  bucket = aws_s3_bucket.cloud_resume_challenge_bucket.id
+#   index_document {
+#     suffix = "index.html"
+#   }
 
-  index_document {
-    suffix = "index.html"
-  }
+#   error_document {
+#     key = "error.html"
+#   }
 
-  error_document {
-    key = "error.html"
-  }
-
-}
+# }
 
 
 resource "aws_s3_bucket_public_access_block" "cloudfront_read_only" {
