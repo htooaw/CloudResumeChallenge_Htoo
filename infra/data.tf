@@ -15,3 +15,6 @@ output "gitlab_ci_deploy_role_arn" {
   value       = aws_iam_role.gitlab_ci_deploy.arn
 }
 
+output "visitor_count_api_url" {
+  value = aws_apigatewayv2_stage.visitor_count_stage.invoke_url
+}

@@ -1,0 +1,28 @@
+AWSTemplateFormatVersion: '2010-09-09-OC'
+Description: AWS Organization for Terraform learning
+
+Organization:
+  MasterAccount:
+    Type: OC::ORG::MasterAccount
+    Properties:
+      Alias: org-formation-master
+      RootEmail: <org-root-email>
+      AccountName: Htoo Aung Win General
+      AccountId: '333333333333'
+
+  OrganizationRoot:
+    Type: OC::ORG::OrganizationRoot
+
+  SandboxOU:
+    Type: OC::ORG::OrganizationalUnit
+    Properties:
+      OrganizationalUnitName: Sandbox
+      Accounts:
+        - !Ref SandboxAccount
+
+  SandboxAccount:
+    Type: OC::ORG::Account
+    Properties:
+      AccountName: sandbox-account
+      RootEmail: <sandbox-root-email>
+      Alias: sandbox-account
