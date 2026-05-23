@@ -5,6 +5,7 @@ dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table('crc_visitor_count')
 
 def lambda_handler(event, context):
+
     try:
         response = table.update_item(
             Key={'id': 'main'},
