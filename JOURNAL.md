@@ -1,4 +1,5 @@
-# What aspect of Chunk 1's work did you find the most difficult?
+# CHUNK1
+### What aspect of Chunk 1's work did you find the most difficult?
 
 It would be understanding IAM and OIDC authentication properly when trying to automate deployments from GitLab CI/CD to AWS. At first, I thought CI/CD was simply "push code and deploy automatically," but while building the project I realized there were many security concepts happening behind the scenes.
 
@@ -42,9 +43,9 @@ Some references and documentation I used heavily during this process were:
 - [Terraform aws_iam_policy_document Documentation](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/iam_policy_document)
 
 
-# Note one or two problems you overcame to get the static site deployed; include the error messages or screenshots of the issues, and write down what you did to fix them.
+### Note one or two problems you overcame to get the static site deployed; include the error messages or screenshots of the issues, and write down what you did to fix them.
 
-## Problem 1: Wrong MIME types from uploading via Terraform
+#### Problem 1: Wrong MIME types from uploading via Terraform
 
 One mistake I made while deploying the static site was trying to upload the Next.js `out/` build files to S3 entirely using Terraform resources such as `aws_s3_object`.
 
@@ -87,7 +88,7 @@ This helped me better understand the difference between:
 
 It also taught me an important real-world DevOps concept: even though infrastructure and application deployments are related, they are often handled separately using different tools designed for different responsibilities.
 
-## Problem 2: GitLab CI failing on an empty OIDC token
+#### Problem 2: GitLab CI failing on an empty OIDC token
 
 The first time I pushed my `.gitlab-ci.yml`, the pipeline failed with this error in the deploy job:
 
@@ -137,11 +138,11 @@ Other things I would have added:
 One thing this project taught me is that real-world cloud projects evolve gradually. At the beginning, I mainly focused on "making it work," but as I learned more about Terraform, IAM, and CI/CD design patterns, I started thinking more about maintainability, scalability, and security. The instinct to keep adding monitoring, environment separation, and review gates didn't come from a tutorial, but it came from actually building the thing and noticing where it would break under more serious conditions.
 
 
-# If you tried one or more of the project mods (Developer, DevOps, Security, or Solutions Architect), describe: What you did, Why you chose that mod, And how it deepened your understanding of real-world cloud skills.
+### If you tried one or more of the project mods (Developer, DevOps, Security, or Solutions Architect), describe: What you did, Why you chose that mod, And how it deepened your understanding of real-world cloud skills.
 
 I focused on the DevOps mod because I wanted to build stronger cloud infrastructure and CI/CD skills instead of only deploying a static website manually.
 
-## What I did
+#### What I did
 
 For the DevOps portion, I used Terraform to provision and manage AWS infrastructure instead of configuring resources manually through the AWS console. I created and configured:
 
@@ -162,7 +163,7 @@ I also integrated GitLab CI/CD into the deployment workflow. Instead of manually
 
 The end result is that pushing to `main` automatically rebuilds and deploys the site to `https://htooaungwin.com`, with HTTPS terminated at CloudFront and the S3 bucket completely private behind it.
 
-## Why DevOps
+#### Why DevOps
 
 I chose the DevOps mod because I wanted to learn the real-world workflow behind infrastructure automation and secure cloud deployments. While building the project, I realized modern DevOps is not only about automation, but also about understanding:
 
@@ -173,7 +174,7 @@ I chose the DevOps mod because I wanted to learn the real-world workflow behind 
 - deployment safety (least-privilege, no long-lived credentials)
 - separation between infrastructure provisioning and application deployment
 
-## How it deepened my understanding
+#### How it deepened my understanding
 
 The OIDC piece deepened my understanding the most. Before this project, I had only seen CI/CD pipelines using static AWS access keys stored as secrets. Through this project, I learned how modern pipelines use temporary credentials with JWT tokens, AWS STS, `sts:AssumeRoleWithWebIdentity`, and IAM trust policies with `aud` and `sub` conditions. This helped me understand how cloud providers securely allow CI/CD systems to access infrastructure without exposing long-lived credentials.
 
@@ -182,3 +183,113 @@ The other thing that deepened my understanding was migrating from a public S3 bu
 I also hit a real Terraform state-drift situation halfway through the project. After restructuring my repo, my state file lost track of three IAM resources, and Terraform tried to recreate them but AWS rejected the creates because the resources already existed. Instead of destroying and recreating everything to "fix" it, I used `terraform import` to reconcile state with reality. That experience taught me something important: in real infrastructure work, state and reality drift apart constantly, and the right move is almost always to bring state back in line, not to destroy production resources to make the tool happy.
 
 Another thing I learned was that Terraform and deployment tools serve different purposes. Initially, I tried uploading the Next.js `out/` files directly using Terraform resources, but I ran into issues with incorrect MIME content types. After troubleshooting, I switched to using `aws s3 sync` inside the GitLab pipeline, which taught me an important DevOps principle: infrastructure management and application deployment are usually handled separately even though they work together closely.
+
+# CHUNK1
+### What aspect of Chunk 2's work did you find the most difficult?
+
+
+The hardest part was understanding how the *layers* of a serverless backend connect, and what each one is responsible for. Coming from the SAA cert, I knew what Lambda, DynamoDB, API Gateway, and SNS were on paper. Actually wiring them together end-to-end in Terraform forced me to think about
+
+- How does API Gateway *actually* invoke Lambda? (Answer: through a resource policy on the Lambda — `aws_lambda_permission` — that explicitly allows the API Gateway service principal. Without it, API Gateway gets 403'd by the Lambda.)
+- Why does my Lambda's IAM role need *two* policies attached — one for DynamoDB and one for CloudWatch Logs? (Two different concerns, two different scopes. The AWS-managed `AWSLambdaBasicExecutionRole` handles logging; my custom policy handles the DynamoDB-specific access.)
+- What's the actual difference between `client` and `resource` in boto3, and which one should I use? (Resource is higher-level and friendlier for simple work; client is verbose but mirrors the AWS API exactly. Used `resource` for DynamoDB in my visitor counter Lambda.)
+
+The other thing that took time was thinking in terms of *atomic operations* in DynamoDB. My first instinct was to write the Lambda as "read count, add 1, write count" three operations. That works, but it's a race condition: two visitors hitting the API at the same time could both read the same count and both write `count+1`, losing an increment. DynamoDB's `UpdateExpression` with the `ADD` operator does this atomically in a single API call. Concurrency isn't something I thought about much before — this was a small but real introduction.
+
+
+### Note one or two problems you overcame to get the cloud function talking to your database — with error messages and how you fixed them
+
+#### Problem 1: Lambda import error — `No module named 'lambda_function'`
+
+The first time I deployed my Lambda and ran the Test button in the AWS console, I got:
+```bash
+{
+"errorMessage": "Unable to import module 'lambda_function': No module named 'lambda_function'",
+"errorType": "Runtime.ImportModuleError"
+}
+```
+My Terraform config was telling Lambda the handler was at `lambda_function.lambda_handler`, but Lambda couldn't find that module in the zip.I started by `unzip -l`'ing the deployed zip locally:
+```bash
+infra/visitor_count_lambda.zip
+└── lamba_function.py
+```
+The filename was `lamba_function.py`, not `lambda_function.py`. I'd typo'd the filename, missing the `d` in "lambda" :) and never noticed because everything *looked* right until Lambda actually tried to import it. Fix was a one-line rename:
+
+```bash
+mv lambda/visitor_count/lamba_function.py lambda/visitor_count/lambda_function.py
+```
+
+Then `terraform apply` rebuilt the zip with the correct filename, and the Lambda imported fine.
+
+Lessons:
+- The error message was very specific and pointed at exactly the problem (`No module named 'lambda_function'`). Reading error messages carefully matters.
+- The `unzip -l` command was the diagnostic that cracked it. When packaging seems wrong, look at the actual artifact, not at the source.
+- Easy typos in filenames are invisible until something specific tries to use that exact name. Lint and IDE checks didn't catch this because the filename only matters at the Lambda runtime layer.
+
+#### Problem 2: ChatOps notifier sending the wrong payload to Slack
+
+When I built the SNS → notifier Lambda → Slack integration, my first version POSTed the raw CloudWatch alarm JSON straight to Slack:
+
+```python
+sns_message = json.loads(event['Records'][0]['Sns']['Message'])
+alarm = json.dumps(sns_message).encode('utf-8')  # re-encoded the alarm JSON
+req = urllib.request.Request(webhook_url, data=alarm, ...)
+```
+
+Slack's incoming webhook rejected it. The alarm dict looks like `{"AlarmName": "...", "NewStateValue": "ALARM", ...}`  but Slack expects its own message format like `{"text": "..."}`. I'd conflated the *input* (the alarm) with the *output* (what Slack wants).
+
+Fix: build a Slack-shaped payload from the alarm fields:
+
+```python
+sns_message = json.loads(event['Records'][0]['Sns']['Message'])
+slack_payload = {
+    "text": f"🚨 *{sns_message['AlarmName']}* is in state *{sns_message['NewStateValue']}*\n{sns_message['NewStateReason']}"
+}
+data = json.dumps(slack_payload).encode('utf-8')
+urllib.request.urlopen(urllib.request.Request(webhook_url, data=data, ...))
+```
+
+I also caught (with help) that I'd built the `Request` object but forgotten to call `urlopen()` on it. The function was running, parsing the alarm, building the payload, and then silently exiting without ever talking to Slack. Stdlib `urllib` makes this easy to miss because building the request and sending it are two separate calls, unlike `requests.post()` in higher-level libraries.
+
+### Did you implement one of the mods? What did you choose and what did you learn?
+
+I did the DevOps Mod (Monitor Lizard)  both parts.
+
+#### What I did
+
+**Part 1 — Metrics and alarms:** I picked 5 CloudWatch metrics to alarm on:
+
+- Lambda Errors — function-level crashes
+- Lambda Duration — performance regression early warning
+- Lambda Invocations — DDoS or popularity spike
+- API Gateway 5xx — visitor-facing failures (catches things Lambda errors might miss)
+- API Gateway 4xx — bad request probing (could indicate reconnaissance)
+
+Each one is a separate `aws_cloudwatch_metric_alarm` in Terraform, wired to an SNS topic via `alarm_actions`.
+
+**Part 2 — ChatOps:** I built the full chain from alarm → SNS → notifier Lambda → Slack webhook. The notifier Lambda fetches its Slack webhook URL from AWS Systems Manager Parameter Store (as a `SecureString`) so the URL isn't hardcoded in source or Terraform. The Lambda parses the SNS message, extracts alarm fields, and POSTs a formatted message to a Slack channel via webhook.
+
+To test the chain, I deliberately broke my visitor-counter Lambda by adding `raise Exception("test")` at the top of the handler, hit the API once, and watched the alarm fire and the Slack message arrive about a minute later. Then reverted the broken code.
+
+#### Why DevOps
+
+Same reason as Chunk 1: I'm targeting cloud/devops roles, and monitoring is a daily-bread skill in those jobs. "Built a Lambda that increments a counter" is a tutorial. "Built a Lambda with five CloudWatch alarms, SNS notification, and a custom ChatOps integration via Slack webhook, with secrets in Parameter Store" is the kind of thing a small team would actually run.
+
+#### How it deepened my understanding
+
+The biggest lesson was *thinking about what matters to alert on*. The book gave example metrics; I had to decide which 3-5 made sense for my specific service. That's not a technical exercise. It's an architectural one. Threshold-picking was its own decision. For my low-traffic portfolio, "normal" is "near-zero traffic," which means *any* alarm condition is somewhat anomalous. I went strict on errors (alarm at >= 1) and looser on 4xx (alarm at >= 10) since occasional 4xx from probing is normal. Those reasoning trails are what an interviewer would actually probe.
+
+The other thing I learned was Parameter Store as a real piece of devops infrastructure. Before this project, I'd vaguely heard of it but never used it. The pattern of "Terraform creates an SSM parameter as `SecureString`, your Lambda's IAM role grants `ssm:GetParameter`, your Lambda code fetches it at module-load time" is super common anywhere you have third-party credentials (API keys, webhooks, OAuth secrets) that aren't AWS-native. Parameter Store is free; Secrets Manager does the same job but costs money for advanced features I don't need yet.
+
+Side learning: I accidentally pasted my real Slack webhook URL into a chat while debugging. That was a credential leak. I rotated the credential immediately, create a new webhook, update `terraform.tfvars`, move on. 
+
+### What's something you'd have done differently, or added, if you'd had more time?
+
+The biggest thing I'd add is **CI/CD for the Lambda code**, not just for the static site. Right now my GitLab pipeline only deploys frontend changes (`aws s3 sync` of the static build). When I change Lambda code, I have to manually `terraform apply` from my laptop. That's fine for a one-person project, but in any real team the Lambda would have its own deploy pipeline probably running tests, packaging the zip, uploading, and updating the function version. This is partly Chunk 4 territory (multi-environment promotion), but even a single-environment Lambda deploy pipeline would be a meaningful step up.
+
+Other things I'd add:
+
+- **Unit tests for the Lambda code.** The book mentions tests in Chunk 3, I'd want to write `pytest` tests for the visitor counter Lambda using `moto` (a library that mocks AWS services in tests) so I could test the increment logic without hitting real DynamoDB.
+- **Custom domain for the API.** Right now my API is at the ugly `<id>.execute-api.ap-southeast-1.amazonaws.com` URL. A custom subdomain like `api.htooaungwin.com` would be cleaner. Same pattern as the portfolio domain, ACM cert + API Gateway custom domain mapping + Route 53 record.
+- **Better alarm thresholds based on real traffic.** Right now my thresholds are guesses. Once the site has some baseline traffic, I'd look at actual CloudWatch metrics and tune the alarms accordingly. Real teams iterate on alarm thresholds based on signal-to-noise ratio.
+- **Structured logging in the Lambda.** Right now if the Lambda errors, I see a Python stack trace in CloudWatch. Better would be structured JSON logs with consistent fields (`request_id`, `error_type`, `duration_ms`, etc.) that I could query with CloudWatch Insights. Modern logging hygiene.
