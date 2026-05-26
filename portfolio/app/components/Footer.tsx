@@ -11,7 +11,7 @@ export function Footer() {
         </p>
         <p className="flex items-center gap-2">
           <span className="h-1.5 w-1.5 rounded-full bg-signal-green" />
-          all systems operational
+          You are visitor : 42
         </p>
       </div>
     </footer>
