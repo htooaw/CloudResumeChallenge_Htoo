@@ -1,4 +1,5 @@
 import { profile } from '@/lib/data';
+import VisitorCount from './VisitorCount';
 
 export function Footer() {
   const year = new Date().getFullYear();
@@ -11,7 +12,7 @@ export function Footer() {
         </p>
         <p className="flex items-center gap-2">
           <span className="h-1.5 w-1.5 rounded-full bg-signal-green" />
-          You are visitor : 42
+            <VisitorCount />
         </p>
       </div>
     </footer>
