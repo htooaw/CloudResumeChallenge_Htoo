@@ -293,3 +293,103 @@ Other things I'd add:
 - **Custom domain for the API.** Right now my API is at the ugly `<id>.execute-api.ap-southeast-1.amazonaws.com` URL. A custom subdomain like `api.htooaungwin.com` would be cleaner. Same pattern as the portfolio domain, ACM cert + API Gateway custom domain mapping + Route 53 record.
 - **Better alarm thresholds based on real traffic.** Right now my thresholds are guesses. Once the site has some baseline traffic, I'd look at actual CloudWatch metrics and tune the alarms accordingly. Real teams iterate on alarm thresholds based on signal-to-noise ratio.
 - **Structured logging in the Lambda.** Right now if the Lambda errors, I see a Python stack trace in CloudWatch. Better would be structured JSON logs with consistent fields (`request_id`, `error_type`, `duration_ms`, etc.) that I could query with CloudWatch Insights. Modern logging hygiene.
+
+
+# CHUNK 3
+
+### What aspect of Chunk 3's work did you find the most difficult?
+Easily the React component. I'd done a little JavaScript before, but never React, never hooks, never TypeScript. Writing a `<VisitorCount />` component that fetches from my API and shows the result sounds simple in plain English and it is, once you know the pattern. Getting there from zero took longer than I expected.
+
+The mental model that took a while to click: a React component renders *once* with the initial state (in my case, `count = null`), then `useEffect` fires *after* the render, then the fetch happens, then state updates, then the component re-renders with the new value. That's a lot of asynchronous choreography for what looks like one small widget. Coming from Python and Terraform, both of which run top to bottom, React's "everything is reactive" model felt backwards.
+
+
+A couple of specific things I got hung up on:
+- **`'use client'` at the top of the file.** Next.js App Router defaults to server components, where `useState` and `useEffect` don't work. The error wasn't obvious. I had to read about server vs client components to understand why I needed that directive.
+- **CORS during local testing.** When I ran `npm run dev` and opened `localhost:3000`, the fetch silently failed and the counter said "Loading..." forever. The browser console showed a CORS error. My API Gateway only allowed `https://htooaungwin.com` as an origin, which is correct for production but blocks local testing. I decided not to add `localhost:3000` to the CORS list — the component code was clearly right, and I'd see the real number once it deployed.
+
+The Python tests were less conceptually new but had their own surprise. My Lambda creates the DynamoDB resource at module level (`dynamodb = boto3.resource('dynamodb')` outside the handler which is a cold-start optimization). When I tried to test it with `moto`, the import happened *before* the mock was active, so the boto3 client connected to real AWS. The fix was importing `lambda_function` inside each test function, after `mock_aws` was active. It works but feels brittle. The cleaner solution would be refactoring the Lambda to lazy-init the client, but that's changing production code to make testing easier, which has its own tradeoffs.
+
+The Browser Up mod was the most fun part for me, but I tripped on something dumb at the start: I imported `process` from `@playwright/test` along with `test` and `expect`, because my editor's autocomplete suggested it. `process` is a Node.js global, not a Playwright export, so `process.env.SITE_URL` ended up reading `undefined.env`, which threw. The fix was to remove `, process` from the import but the error message ("Cannot read properties of undefined") didn't immediately point at the import. I learned to read import statements carefully when something basic breaks for no obvious reason.
+
+### Note one or two problems you overcame to get the front end and back end working together; include the error messages or screenshots of the issues, and write down what you did to fix them.
+
+#### Problem 1: Pytest tests all passing, but secretly hitting real AWS
+
+The first version of my pytest setup ran "green" the first time. All three tests passed. I was about to commit, then noticed something off: the tests felt too fast on cold start but suspiciously identical to what would happen if I were hitting real DynamoDB. So I checked the AWS console and saw my real `crc_visitor_count` table's count had jumped by 3.
+
+What had happened: my Lambda's `boto3.resource('dynamodb')` runs at module import time, *before* the `mock_aws` decorator activates in the test. So when I did `from lambda_function import lambda_handler` at the *top* of my test file, the real boto3 client got created against real AWS. Every test then incremented the real production counter.
+
+The fix is to move the import inside each test function, after the `mock_aws` context is entered:
+
+```python
+def test_happy_path(dynamodb_table):
+    from lambda_function import lambda_handler  # import here, not at top
+    response = lambda_handler({}, None)
+    ...
+```
+
+This is ugly having imports inside functions violates a basic Python convention but it works. The deeper fix would be refactoring `lambda_function.py` to create the boto3 client lazily inside the handler instead of at module level. I chose not to because:
+1. The module-level pattern is a real Lambda optimization (cold start performance)
+2. Changing production code to suit tests feels wrong
+
+So I documented the import-inside-tests pattern as an intentional choice. Lesson: when tests "pass" too easily, look at what's actually happening. Real AWS calls during tests would have shown up in CloudTrail eventually, but only after they cost me real money or polluted my data.
+
+#### Problem 2: Playwright test in the wrong folder, found no tests
+
+After running `mkdir -p tests/browser` in the wrong directory, my Playwright setup ended up at `lambda/visitor_count/tests/browser/` instead of at the repo root. The first `npx playwright test` showed:
+```
+TypeError: Cannot read properties of undefined (reading 'env')
+at visitor_count.spec.ts:3
+...
+Error: No tests found
+```
+Two bugs in one output: the `process` import issue (the TypeError) and the wrong folder location (the "No tests found"). The path in the error gave it away — `/lambda/visitor_count/tests/browser/visitor_count.spec.ts` is obviously not where browser tests for a deployed website should live.
+Fix:
+
+```bash
+mv lambda/visitor_count/tests/browser tests/browser
+```
+Browser tests belong at the repo root, alongside `infra/`, `lambda/`, `portfolio/`. They test the *deployed system as a whole*, not anything specific to one component. Mixing them under `lambda/` was a category error on my part. I created the folder reflexively without thinking about where it logically belonged.
+
+After moving them and fixing the import, all three tests passed against my live site.
+
+### Did you implement one of the mods? Note which you chose and what you learned. How did you improve your project over the basic spec?
+
+I did the Browser Up DevOps Mod. The base challenge asks for Python tests on the Lambda (which I did separately in `lambda/visitor_count/tests/`). Browser Up takes it further by automated browser tests that run in CI on every deploy, asserting the *live deployed site* actually works for visitors.
+
+#### What I built
+
+Three Playwright tests in `tests/browser/visitor_count.spec.ts`:
+
+1. **Homepage loads** — basic sanity, returns a non-empty title
+2. **Visitor counter shows a number** — uses a regex (`Visitor: \d+`) to assert the counter rendered with an actual digit, not "Loading..."
+3. **No critical console errors** — listens for browser console errors, fails if any non-trivial errors occur
+
+Tests run in a new `smoke_test` stage in `.gitlab-ci.yml`, after the `deploy` stage. The pipeline image is `mcr.microsoft.com/playwright:v1.50.0-jammy` — official Playwright Docker image with Chromium pre-installed, so I don't have to install browsers during CI runs.
+
+#### Why this mod
+
+Two reasons. First, "I have CI tests that verify my deployed site works" is a stronger interview story than "I have unit tests." Most candidates have one or the other; few have both. Second, smoke tests catch the kind of bug unit tests can't: a successful build that deploys broken JavaScript, a CORS misconfiguration that worked locally but breaks in production, a CloudFront cache serving stale content. Unit tests would all pass and the deploy would go green but real visitors would see a broken site.
+
+#### How it deepened my understanding
+
+The most important lesson came from *deliberately breaking* my site to verify the tests would catch the failure. I commented out the `<VisitorCount />` component in my Footer, pushed, and watched the smoke_test job go red. Then reverted and watched it go green.
+
+This is a discipline I hadn't thought about before *testing the test*. A test that always passes is theater, not signal. The only way to trust a test is to see it fail on a real bug. I'd happily skipped this step in the past, assuming green checkmarks meant safety. Now I know to verify the negative case at least once, especially for new test infrastructure.
+
+I also learned the layering of testing what unit tests catch, what smoke tests catch, and where each is appropriate. Unit tests are for *logic in isolation* does my function increment correctly given a specific input? Smoke tests are for *the system as a whole* — does the deployed site work for a real visitor? They're complementary; you can't replace one with the other. Real teams stack both, and my project now does too.
+
+A side note about retries: I configured Playwright with `retries: 2`. Browser tests are inherently a bit flaky CDN cache misses, slow CloudFront propagation, transient network issues. Two retries means a test has to fail three times in a row before the pipeline goes red.
+
+### What's something you'd have done differently, or added, if you'd had more time?
+
+The biggest gap is that I don't have a `unit_test` stage in CI yet. My pytest tests run locally only — I have to remember to run them before committing. In any real project, those tests would run on every commit in CI, before the deploy job, so a broken Lambda can't reach production by accident. I have the tests; they just need a YAML job to invoke them. Maybe 10 minutes of work. I'll add this when I tackle Chunk 4's pipeline rework.
+
+A few other things I'd add given more time:
+
+- **Refactor the Lambda to lazy-init the boto3 client.** Would make the pytest setup cleaner — no more imports-inside-tests workaround. Tradeoff is slightly slower cold starts. For a portfolio it doesn't matter, but in a real service I'd think harder about which side to optimize for.
+- **More Playwright assertions.** Right now I check the counter shows *a* number. I could also assert it *increments* between page loads (load page, read number, reload, assert new number is higher). Closer to a real user-facing smoke test.
+- **Visual regression testing.** Playwright supports screenshot diffing — take a screenshot on every deploy, compare to a baseline, fail if anything visually changed unexpectedly. Catches CSS regressions that pure assertion-based tests miss. Overkill for a portfolio, but a real production team would use it.
+- **Run smoke tests against a staging environment, not prod.** Right now my smoke tests hit `https://htooaungwin.com` directly — the same URL my visitors use. If a test load somehow corrupts the visitor counter (it wouldn't, since reads are idempotent, but in a more complex system…), it'd affect real users. The cleaner pattern is to deploy to staging first, smoke test against staging, then promote to prod. That's Chunk 4 territory.
+
+The recurring theme across all three chunks so far: the basic project works, but "works" and "production-ready" are different things. Each chunk is partly about building the thing, partly about understanding the gap to production. That gap is where the interesting work lives.

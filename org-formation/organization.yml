@@ -18,7 +18,9 @@ Organization:
     Properties:
       OrganizationalUnitName: Sandbox
       Accounts:
-        - !Ref SandboxAccount
+        - Ref: SandboxAccount
+      ParentId:
+        Ref: OrganizationRoot
 
   SandboxAccount:
     Type: OC::ORG::Account
