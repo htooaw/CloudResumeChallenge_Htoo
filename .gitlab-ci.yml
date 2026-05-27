@@ -40,7 +40,7 @@ deploy_site:
 
 smoke_test:
   stage: smoketest
-  image: mcr.microsoft.com/playwright:v1.50.0-jammy
+  image: mcr.microsoft.com/playwright:v1.60.0-jammy
   script:
     - cd tests/browser
     - npm install
