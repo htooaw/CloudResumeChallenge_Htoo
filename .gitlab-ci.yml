@@ -1,8 +1,9 @@
 stages:
   - build
   - deploy
+  - smoketest
 
-variables:  
+variables:
   AWS_DEFAULT_REGION: ap-southeast-1
   S3_BUCKET: h4wops.com
   ROLE_ARN: arn:aws:iam::111111111111:role/gitlab_ci_deploy
@@ -22,17 +23,33 @@ build_site:
 
 deploy_site:
   stage: deploy
-  image: 
+  image:
     name: amazon/aws-cli:latest
     entrypoint: [""]
   id_tokens:
     AWS_TOKEN:
       aud: $AUD
   script:
-  - echo "$AWS_TOKEN" > /tmp/oidc_token
-  - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/oidc_token
-  - export AWS_ROLE_ARN="$ROLE_ARN"
-  - aws sts get-caller-identity   # sanity check: prints the assumed role
-  - aws s3 sync ./portfolio/out s3://$S3_BUCKET/ --delete
+    - echo "$AWS_TOKEN" > /tmp/oidc_token
+    - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/oidc_token
+    - export AWS_ROLE_ARN="$ROLE_ARN"
+    - aws sts get-caller-identity # sanity check: prints the assumed role
+    - aws s3 sync ./portfolio/out s3://$S3_BUCKET/ --delete
   rules:
-  - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+smoke_test:
+  stage: smoketest
+  image: mcr.microsoft.com/playwright:v1.50.0-jammy
+  script:
+    - cd tests/browser
+    - npm install
+    - npx playwright test
+  artifacts:
+   when: on_failure
+   paths:
+      - tests/browser/playwright-report/
+      - tests/browser/test-results/
+   expire_in: 1 week
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"

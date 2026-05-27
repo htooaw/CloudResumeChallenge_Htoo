@@ -23,3 +23,9 @@ out/
 .idea/
 
 *.tfvars
+
+lambda/**/.vnev/
+
+tests/browser/node_modules
+tests/browser/playwright-report/
+tests/browser/test-results/
