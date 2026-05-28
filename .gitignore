@@ -29,3 +29,10 @@ lambda/**/.vnev/
 tests/browser/node_modules
 tests/browser/playwright-report/
 tests/browser/test-results/
+
+# Terraform state - all variants
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+**/*.tfstate
+**/*.tfstate.*
