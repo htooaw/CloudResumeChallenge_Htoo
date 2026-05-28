@@ -48,6 +48,8 @@ data "archive_file" "visitor_count_lambda_zip" {
   type        = "zip"
   source_dir  = "${path.module}/../lambda/visitor_count"
   output_path = "${path.module}/visitor_count_lambda.zip"
+    excludes    = ["tests", "tests/*", ".venv", ".venv/*", "__pycache__", "__pycache__/*", "requirements-dev.txt", ".pytest_cache", ".pytest_cache/*"]
+
 }
 
 resource "aws_lambda_function" "visitor_count" {

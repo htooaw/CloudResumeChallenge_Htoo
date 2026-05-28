@@ -1,4 +1,10 @@
-terraform {
+terraform { 
+  cloud {
+    organization = "haw-org"
+    workspaces {
+      name = "cloudresumechallenge-haw"
+    }
+  }
   required_providers {
     aws = {
       source  = "hashicorp/aws"
