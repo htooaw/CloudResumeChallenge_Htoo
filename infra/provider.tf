@@ -2,7 +2,7 @@ terraform {
   cloud {
     organization = "haw-org"
     workspaces {
-      name = "cloudresumechallenge-haw"
+      name = "cloudresumechallenge-haw-prod"
     }
   }
   required_providers {
