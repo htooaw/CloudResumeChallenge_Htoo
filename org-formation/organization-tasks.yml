@@ -1,0 +1,11 @@
+# organization-tasks.yml
+
+OrganizationUpdate:
+  Type: update-organization
+  Template: ./organization.yml
+
+SsoAssignments:
+  Type: update-stacks
+  Template: ./sso-assignments.yml
+  StackName: SsoAssignments
+  StackDescription: Manage SSO Assignments

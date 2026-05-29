@@ -19,8 +19,6 @@ Organization:
       OrganizationalUnitName: Sandbox
       Accounts:
         - Ref: SandboxAccount
-      ParentId:
-        Ref: OrganizationRoot
 
   SandboxAccount:
     Type: OC::ORG::Account
@@ -28,3 +26,18 @@ Organization:
       AccountName: sandbox-account
       RootEmail: <sandbox-root-email>
       Alias: sandbox-account
+
+
+  TestOU:
+    Type: OC::ORG::OrganizationalUnit
+    Properties:
+      OrganizationalUnitName: Test
+      Accounts:
+        - Ref: TestAccount
+  
+  TestAccount:
+    Type: OC::ORG::Account
+    Properties:
+      AccountName: test-account
+      RootEmail: <test-root-email>
+      Alias: test-account

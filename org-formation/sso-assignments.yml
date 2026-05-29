@@ -1,0 +1,42 @@
+AWSTemplateFormatVersion: '2010-09-09-OC'   # required header
+Description: SSO Assignments
+
+Organization: !Include ./organization.yml   # pulls in your accounts
+
+DefaultOrganizationBindingRegion: ap-southeast-1
+
+Parameters:
+  IdentityStoreId:
+    Type: String
+    Default: <identity-store-id>
+  InstanceArn:
+    Type: String
+    Default: arn:aws:sso:::instance/<sso-instance-id>
+  AdminUserPrincipalId:
+    Type: String
+    Default: <admin-user-principal-id>
+
+Resources:
+  AdministratorAccessPermissionSet:
+    OrganizationBinding:
+      IncludeMasterAccount: true
+    Type: AWS::SSO::PermissionSet
+    Properties:
+      Name: OrgFormationAdministratorAccess
+      Description: "Administrator access"
+      InstanceArn: !Ref InstanceArn
+      ManagedPolicies:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+      SessionDuration: PT4H
+  
+  HawGeneralAdminTestAccount:
+    OrganizationBinding:
+      IncludeMasterAccount: true
+    Type: AWS::SSO::Assignment
+    Properties:
+      InstanceArn: !Ref InstanceArn
+      PermissionSetArn: !GetAtt AdministratorAccessPermissionSet.PermissionSetArn
+      PrincipalId: !Ref AdminUserPrincipalId
+      PrincipalType: USER
+      TargetId: '222222222222'
+      TargetType: AWS_ACCOUNT
