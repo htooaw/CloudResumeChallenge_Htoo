@@ -1,4 +1,4 @@
-terraform { 
+terraform {
   cloud {
     organization = "haw-org"
     workspaces {
