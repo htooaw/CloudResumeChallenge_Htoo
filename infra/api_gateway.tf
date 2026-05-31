@@ -3,7 +3,7 @@ resource "aws_apigatewayv2_api" "visitor_count_api" {
   protocol_type = "HTTP"
 
   cors_configuration {
-    allow_origins = ["https://htooaungwin.com"]
+    allow_origins = var.use_custom_domain ? ["https://${var.site_domain}"] : ["https://${aws_cloudfront_distribution.site.domain_name}"]
     allow_methods = ["GET", "OPTIONS"]
     allow_headers = ["content-type"]
   }

@@ -1,7 +1,8 @@
 resource "aws_acm_certificate" "site" {
+  count                     = var.use_custom_domain ? 1 : 0
   provider                  = aws.us_east_1
-  domain_name               = "htooaungwin.com"
-  subject_alternative_names = ["www.htooaungwin.com"]
+  domain_name               = var.site_domain
+  subject_alternative_names = ["www.${var.site_domain}"]
   validation_method         = "DNS"
 
   lifecycle {
@@ -11,20 +12,21 @@ resource "aws_acm_certificate" "site" {
 
 
 data "aws_route53_zone" "site" {
-  name         = "htooaungwin.com"
+  count        = var.use_custom_domain ? 1 : 0
+  name         = var.site_domain
   private_zone = false
 }
 
 resource "aws_route53_record" "cert_validation" {
-  for_each = {
-    for dvo in aws_acm_certificate.site.domain_validation_options : dvo.domain_name => {
+  for_each = var.use_custom_domain ? {
+    for dvo in aws_acm_certificate.site[0].domain_validation_options : dvo.domain_name => {
       name   = dvo.resource_record_name
       record = dvo.resource_record_value
       type   = dvo.resource_record_type
     }
-  }
+  } : {}
 
-  zone_id         = data.aws_route53_zone.site.zone_id
+  zone_id         = data.aws_route53_zone.site[0].zone_id
   name            = each.value.name
   records         = [each.value.record]
   type            = each.value.type
@@ -34,8 +36,9 @@ resource "aws_route53_record" "cert_validation" {
 }
 
 resource "aws_acm_certificate_validation" "site" {
+  count                   = var.use_custom_domain ? 1 : 0
   provider                = aws.us_east_1
-  certificate_arn         = aws_acm_certificate.site.arn
+  certificate_arn         = aws_acm_certificate.site[0].arn
   validation_record_fqdns = [for record in aws_route53_record.cert_validation : record.fqdn]
 }
 
@@ -50,20 +53,19 @@ resource "aws_cloudfront_distribution" "site" {
   origin {
     domain_name              = aws_s3_bucket.cloud_resume_challenge_bucket.bucket_regional_domain_name
     origin_access_control_id = aws_cloudfront_origin_access_control.site.id
-    origin_id                = "s3-h4wops.com"
+    origin_id                = "s3-${var.site_bucket_name}"
   }
 
   enabled             = true
   is_ipv6_enabled     = true
-  comment             = "htooaungwin.com portfolio"
+  comment             = "${var.site_domain} portfolio"
   default_root_object = "index.html"
 
-  aliases = ["htooaungwin.com", "www.htooaungwin.com"]
-
+  aliases = var.use_custom_domain ? [var.site_domain, "www.${var.site_domain}"] : []
   default_cache_behavior {
     allowed_methods  = ["GET", "HEAD"]
     cached_methods   = ["GET", "HEAD"]
-    target_origin_id = "s3-h4wops.com"
+    target_origin_id = "s3-${var.site_bucket_name}"
     compress         = true
 
     viewer_protocol_policy = "redirect-to-https"
@@ -82,10 +84,20 @@ resource "aws_cloudfront_distribution" "site" {
     }
   }
 
-  viewer_certificate {
-    acm_certificate_arn      = aws_acm_certificate_validation.site.certificate_arn
-    ssl_support_method       = "sni-only"
-    minimum_protocol_version = "TLSv1.2_2021"
+  dynamic "viewer_certificate" {
+    for_each = var.use_custom_domain ? [1] : []
+    content {
+      acm_certificate_arn      = aws_acm_certificate_validation.site[0].certificate_arn
+      ssl_support_method       = "sni-only"
+      minimum_protocol_version = "TLSv1.2_2021"
+    }
+  }
+
+  dynamic "viewer_certificate" {
+    for_each = var.use_custom_domain ? [] : [1]
+    content {
+      cloudfront_default_certificate = true
+    }
   }
 
 
@@ -106,9 +118,9 @@ resource "aws_cloudfront_distribution" "site" {
 
 resource "aws_route53_record" "site" {
 
-  for_each = toset(["htooaungwin.com", "www.htooaungwin.com"])
+  for_each = var.use_custom_domain ? toset([var.site_domain, "www.${var.site_domain}"]) : toset([])
 
-  zone_id = data.aws_route53_zone.site.zone_id
+  zone_id = data.aws_route53_zone.site[0].zone_id
 
   name = each.value
   type = "A"
@@ -144,3 +156,4 @@ resource "aws_cloudfront_function" "url_rewrite" {
 }
 EOF
 }
+
