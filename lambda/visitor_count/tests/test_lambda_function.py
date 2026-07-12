@@ -26,8 +26,6 @@ def dynamodb_table():
 
 
 def test_happy_path(dynamodb_table):
-
-    assert False
     # Import inside the test so the mock is active when boto3 client is created
     from lambda_function import lambda_handler
 
