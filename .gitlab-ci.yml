@@ -1,4 +1,5 @@
 stages:
+  - unittest
   - build
   - deploy
   - smoketest
@@ -9,6 +10,15 @@ variables:
   ROLE_ARN: arn:aws:iam::111111111111:role/gitlab_ci_deploy
   AUD: https://gitlab.com
   BUILD_OUTPUT: portfolio/out
+
+unit_test:
+  stage: unittest
+  image: python:3.12-slim
+  script:
+    - pip install -r lambda/visitor_count/requirements-dev.txt
+    - cd lambda/visitor_count
+    - python -m pytest tests/ -v
+
 
 build_site:
   stage: build
