@@ -23,9 +23,9 @@ data "aws_iam_policy_document" "gitlab_trust" {
       identifiers = [aws_iam_openid_connect_provider.gitlab.arn]
     }
     condition {
-      test     = "StringEquals"
+      test     = "StringLike"
       variable = "gitlab.com:sub"
-      values   = ["project_path:h4w1/cloudresumechallenge-haw:ref_type:branch:ref:main"]
+      values = ["project_path:h4w1/cloudresumechallenge-haw:*"]
     }
 
     condition {
@@ -58,4 +58,9 @@ resource "aws_iam_policy" "s3_deploy" {
 resource "aws_iam_role_policy_attachment" "s3_deploy" {
   role       = aws_iam_role.gitlab_ci_deploy.name
   policy_arn = aws_iam_policy.s3_deploy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "aws_resources_readonly" {
+  role       = aws_iam_role.gitlab_ci_deploy.name
+  policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
 }
