@@ -1,6 +1,7 @@
 stages:
   - unittest
   - terraformplan
+  - terraformapply
   - build
   - deploy
   - smoketest
@@ -21,7 +22,7 @@ unit_test:
     - cd lambda/visitor_count
     - python -m pytest tests/ -v
 
-terraform_plan:
+terraform_plan_test:
   stage: terraformplan
   image:
     name: hashicorp/terraform:1.9
@@ -42,6 +43,29 @@ terraform_plan:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == "main"
 
+terraform_apply_test:
+  stage: terraformapply
+  image:
+    name: hashicorp/terraform:1.9
+    entrypoint: [""]
+  id_tokens:
+    AWS_TOKEN:
+      aud: $AUD
+  variables:
+    TF_WORKSPACE: cloudresumechallenge-haw-test
+  script:
+    - echo "$AWS_TOKEN" > /tmp/oidc_token
+    - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/oidc_token
+    - export AWS_ROLE_ARN="$TEST_ROLE_ARN"
+    - cd infra/
+    - terraform init
+    - terraform apply -auto-approve
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+      allow_failure: false
+
+  
 build_site:
   stage: build
   image: node:lts-alpine
