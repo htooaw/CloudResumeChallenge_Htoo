@@ -20,12 +20,12 @@ terraform {
 
 provider "aws" {
   region  = "ap-southeast-1"
-  profile = var.aws_profile
+  #profile = var.aws_profile
 }
 
 provider "aws" {
   region  = "us-east-1"
-  profile = var.aws_profile
+  #profile = var.aws_profile
   alias   = "us_east_1"
 }
 
