@@ -55,6 +55,7 @@ data "archive_file" "visitor_count_lambda_zip" {
 resource "aws_lambda_function" "visitor_count" {
   function_name    = "visitor_count"
   role             = aws_iam_role.visitor_count_lambda.arn
+  memory_size       = 256
   handler          = "lambda_function.lambda_handler"
   runtime          = "python3.12"
   filename         = data.archive_file.visitor_count_lambda_zip.output_path

@@ -32,7 +32,7 @@ data "aws_iam_policy_document" "gitlab_trust" {
       test     = "StringEquals"
       variable = "gitlab.com:aud"
       values   = ["https://gitlab.com"]
-    }
+    } 
   }
 }
 
@@ -63,4 +63,9 @@ resource "aws_iam_role_policy_attachment" "s3_deploy" {
 resource "aws_iam_role_policy_attachment" "aws_resources_readonly" {
   role       = aws_iam_role.gitlab_ci_deploy.name
   policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
+}
+
+resource "aws_iam_role_policy_attachment" "administrator_access" {
+  role       = aws_iam_role.gitlab_ci_deploy.name
+  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
 }
