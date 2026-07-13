@@ -36,3 +36,4 @@ tests/browser/test-results/
 *.tfstate.backup
 **/*.tfstate
 **/*.tfstate.*
+infra/*.zip
