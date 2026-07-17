@@ -86,6 +86,9 @@ terraform_plan_prod:
     - echo "$AWS_TOKEN" > /tmp/oidc_token
     - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/oidc_token
     - export AWS_ROLE_ARN="$PROD_ROLE_ARN"
+    - apk add --no-cache aws-cli
+    - aws sts get-caller-identity
+    - aws route53 list-hosted-zones --query 'HostedZones[?Name==`htooaungwin.com.`]'
     - cd infra/
     - terraform init
     - terraform plan
