@@ -383,13 +383,12 @@ A side note about retries: I configured Playwright with `retries: 2`. Browser te
 
 ### What's something you'd have done differently, or added, if you'd had more time?
 
-The biggest gap is that I don't have a `unit_test` stage in CI yet. My pytest tests run locally only — I have to remember to run them before committing. In any real project, those tests would run on every commit in CI, before the deploy job, so a broken Lambda can't reach production by accident. I have the tests; they just need a YAML job to invoke them. Maybe 10 minutes of work. I'll add this when I tackle Chunk 4's pipeline rework.
+The biggest gap is that I don't have a `unit_test` stage in CI yet. My pytest tests run locally only and I have to remember to run them before committing. In any real project, those tests would run on every commit in CI, before the deploy job, so a broken Lambda can't reach production by accident. I have the tests; they just need a YAML job to invoke them. Maybe 10 minutes of work. I'll add this when I tackle Chunk 4's pipeline rework.
 
 A few other things I'd add given more time:
 
 - **Refactor the Lambda to lazy-init the boto3 client.** Would make the pytest setup cleaner — no more imports-inside-tests workaround. Tradeoff is slightly slower cold starts. For a portfolio it doesn't matter, but in a real service I'd think harder about which side to optimize for.
 - **More Playwright assertions.** Right now I check the counter shows *a* number. I could also assert it *increments* between page loads (load page, read number, reload, assert new number is higher). Closer to a real user-facing smoke test.
-- **Visual regression testing.** Playwright supports screenshot diffing — take a screenshot on every deploy, compare to a baseline, fail if anything visually changed unexpectedly. Catches CSS regressions that pure assertion-based tests miss. Overkill for a portfolio, but a real production team would use it.
+- **Visual regression testing.** Playwright supports screenshot diffing, take a screenshot on every deploy, compare to a baseline, fail if anything visually changed unexpectedly. Catches CSS regressions that pure assertion-based tests miss. Overkill for a portfolio, but a real production team would use it.
 - **Run smoke tests against a staging environment, not prod.** Right now my smoke tests hit `https://htooaungwin.com` directly — the same URL my visitors use. If a test load somehow corrupts the visitor counter (it wouldn't, since reads are idempotent, but in a more complex system…), it'd affect real users. The cleaner pattern is to deploy to staging first, smoke test against staging, then promote to prod. That's Chunk 4 territory.
 
-The recurring theme across all three chunks so far: the basic project works, but "works" and "production-ready" are different things. Each chunk is partly about building the thing, partly about understanding the gap to production. That gap is where the interesting work lives.
