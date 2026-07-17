@@ -164,9 +164,9 @@ smoke_test:
 
 terraform_destroy_test:
   stage: teardown
+  needs: []  
   environment:
     name: test
-    action: stop
   image:
     name: hashicorp/terraform:1.9
     entrypoint: [""]
