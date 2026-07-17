@@ -13,6 +13,7 @@ variables:
   AUD: https://gitlab.com
   BUILD_OUTPUT: portfolio/out
   TEST_ROLE_ARN: arn:aws:iam::222222222222:role/gitlab_ci_deploy
+  PROD_ROLE_ARN: arn:aws:iam::111111111111:role/gitlab_ci_deploy
 
 unit_test:
   stage: unittest
@@ -23,6 +24,8 @@ unit_test:
     - python -m pytest tests/ -v
 
 terraform_plan_test:
+  environment: 
+    name: test
   stage: terraformplan
   image:
     name: hashicorp/terraform:1.9
@@ -44,6 +47,8 @@ terraform_plan_test:
     - if: $CI_COMMIT_BRANCH == "main"
 
 terraform_apply_test:
+  environment:
+    name: test
   stage: terraformapply
   image:
     name: hashicorp/terraform:1.9
@@ -65,6 +70,52 @@ terraform_apply_test:
       when: manual
       allow_failure: false
 
+terraform_plan_prod:
+  environment: 
+    name: prod
+  stage: terraformplan
+  image:
+    name: hashicorp/terraform:1.9
+    entrypoint: [""]
+  id_tokens:
+    AWS_TOKEN:
+      aud: $AUD
+  variables:
+    TF_WORKSPACE: cloudresumechallenge-haw-prod
+  script:
+    - echo "$AWS_TOKEN" > /tmp/oidc_token
+    - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/oidc_token
+    - export AWS_ROLE_ARN="$PROD_ROLE_ARN"
+    - cd infra/
+    - terraform init
+    - terraform plan
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+terraform_apply_prod:
+  environment:
+    name: prod
+  stage: terraformapply
+  image:
+    name: hashicorp/terraform:1.9
+    entrypoint: [""]
+  id_tokens:
+    AWS_TOKEN:
+      aud: $AUD
+  variables:
+    TF_WORKSPACE: cloudresumechallenge-haw-prod
+  script:
+    - echo "$AWS_TOKEN" > /tmp/oidc_token
+    - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/oidc_token
+    - export AWS_ROLE_ARN="$PROD_ROLE_ARN"
+    - cd infra/
+    - terraform init
+    - terraform apply -auto-approve
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+      allow_failure: false  
   
 build_site:
   stage: build
