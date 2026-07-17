@@ -12,6 +12,8 @@ resource "aws_iam_openid_connect_provider" "gitlab" {
 resource "aws_iam_role" "gitlab_ci_deploy" {
   name               = "gitlab_ci_deploy"
   assume_role_policy = data.aws_iam_policy_document.gitlab_trust.json # the trust policy — answers "who can assume me?"
+  max_session_duration = 7200
+
 }
 
 # Trust policy — uses sts:AssumeRoleWithWebIdentity, Federated principal, sub/aud conditions
