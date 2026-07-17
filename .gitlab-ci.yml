@@ -23,6 +23,11 @@ unit_test:
     - pip install -r lambda/visitor_count/requirements-dev.txt
     - cd lambda/visitor_count
     - python -m pytest tests/ -v
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+          - lambda/**
+          - .gitlab-ci.yml
 
 terraform_plan_test:
   environment: 
@@ -45,7 +50,13 @@ terraform_plan_test:
     - terraform plan
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+          - infra/**
+          - .gitlab-ci.yml
     - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+          - infra/**
+          - .gitlab-ci.yml
 
 terraform_apply_test:
   environment:
@@ -70,6 +81,9 @@ terraform_apply_test:
     - if: $CI_COMMIT_BRANCH == "main"
       when: manual
       allow_failure: false
+      changes:
+          - infra/**
+          - .gitlab-ci.yml
 
 terraform_plan_prod:
   environment: 
@@ -92,7 +106,13 @@ terraform_plan_prod:
     - terraform plan
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+            - infra/**
+            - .gitlab-ci.yml
     - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+            - infra/**
+            - .gitlab-ci.yml
 
 terraform_apply_prod:
   environment:
@@ -117,6 +137,10 @@ terraform_apply_prod:
     - if: $CI_COMMIT_BRANCH == "main"
       when: manual
       allow_failure: false  
+      changes:
+          - infra/**
+          - .gitlab-ci.yml
+
   
 build_site:
   stage: build
@@ -128,6 +152,11 @@ build_site:
   artifacts:
     paths:
       - portfolio/out
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - portfolio/**
+        - .gitlab-ci.yml
 
 deploy_site:
   stage: deploy
@@ -145,6 +174,10 @@ deploy_site:
     - aws s3 sync ./portfolio/out s3://$S3_BUCKET/ --delete
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - portfolio/**
+        - .gitlab-ci.yml
+
 
 smoke_test:
   stage: smoketest
@@ -161,6 +194,9 @@ smoke_test:
    expire_in: 1 week
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - portfolio/**
+        - .gitlab-ci.yml
 
 terraform_destroy_test:
   stage: teardown
