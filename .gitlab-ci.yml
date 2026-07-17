@@ -5,6 +5,7 @@ stages:
   - build
   - deploy
   - smoketest
+  - teardown
 
 variables:
   AWS_DEFAULT_REGION: ap-southeast-1
@@ -160,3 +161,28 @@ smoke_test:
    expire_in: 1 week
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
+
+terraform_destroy_test:
+  stage: teardown
+  environment:
+    name: test
+    action: stop
+  image:
+    name: hashicorp/terraform:1.9
+    entrypoint: [""]
+  id_tokens:
+    AWS_TOKEN:
+      aud: $AUD
+  variables:
+    TF_WORKSPACE: cloudresumechallenge-haw-test
+  script:
+    - echo "$AWS_TOKEN" > /tmp/oidc_token
+    - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/oidc_token
+    - export AWS_ROLE_ARN="$TEST_ROLE_ARN"
+    - cd infra/
+    - terraform init
+    - terraform destroy -auto-approve
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+      allow_failure: true
