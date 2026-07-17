@@ -86,9 +86,6 @@ terraform_plan_prod:
     - echo "$AWS_TOKEN" > /tmp/oidc_token
     - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/oidc_token
     - export AWS_ROLE_ARN="$PROD_ROLE_ARN"
-    - echo "AWS_ROLE_ARN=$AWS_ROLE_ARN"
-    - echo "TF_VAR_site_domain='$TF_VAR_site_domain'"
-    - echo "TF_VAR_use_custom_domain='$TF_VAR_use_custom_domain'"
     - cd infra/
     - terraform init
     - terraform plan
