@@ -6,6 +6,10 @@ resource "aws_iam_openid_connect_provider" "gitlab" {
   ]
 
   thumbprint_list = [data.tls_certificate.gitlab.certificates[0].sha1_fingerprint]
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 
@@ -13,6 +17,10 @@ resource "aws_iam_role" "gitlab_ci_deploy" {
   name               = "gitlab_ci_deploy"
   assume_role_policy = data.aws_iam_policy_document.gitlab_trust.json # the trust policy — answers "who can assume me?"
   max_session_duration = 7200
+
+  lifecycle {
+    prevent_destroy = true
+  }
 
 }
 
@@ -34,7 +42,7 @@ data "aws_iam_policy_document" "gitlab_trust" {
       test     = "StringEquals"
       variable = "gitlab.com:aud"
       values   = ["https://gitlab.com"]
-    } 
+    }
   }
 }
 
