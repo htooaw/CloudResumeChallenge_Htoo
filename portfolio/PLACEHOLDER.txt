@@ -1,7 +1,5 @@
-Drop your resume PDF in this directory.
+The deployed resume PDF lives in `public/` so Next.js includes it in the static export.
 
 Default expected filename: HtooAungWin_SRE.pdf
 
 If you use a different filename, update `profile.resumePdf` in lib/data.ts.
-
-This file (PLACEHOLDER.txt) can be deleted once you add the real resume.

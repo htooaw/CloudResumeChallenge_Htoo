@@ -1,20 +1,18 @@
 type Props = {
-  number: string;
+  id: string;
+  eyebrow: string;
   title: string;
-  meta?: string;
+  mutedLine?: string;
 };
 
-export function SectionHeader({ number, title, meta }: Props) {
+export function SectionHeader({ id, eyebrow, title, mutedLine }: Props) {
   return (
-    <div className="mb-12 flex flex-col gap-3">
-      <div className="section-label">
-        <span className="text-amber-glow">{number}.</span>
-        <span>// {meta ?? title.toLowerCase()}</span>
-        <span className="hidden h-px flex-1 bg-ink-3 sm:block" />
-      </div>
-      <h2 className="font-serif text-4xl italic leading-tight tracking-tight text-bone-0 sm:text-5xl">
-        {title}
+    <header className="section-heading">
+      <p className="eyebrow">{eyebrow}</p>
+      <h2 id={id}>
+        <span>{title}</span>
+        {mutedLine && <span className="heading-muted">{mutedLine}</span>}
       </h2>
-    </div>
+    </header>
   );
 }

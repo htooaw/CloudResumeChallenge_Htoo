@@ -1,47 +1,26 @@
-import { about, education } from '@/lib/data';
+import { about } from '@/lib/data';
 import { SectionHeader } from './SectionHeader';
 
 export function About() {
   return (
-    <section id="about" className="container-prose py-24 md:py-32">
-      <SectionHeader number="01" title="About" meta="who" />
+    <section id="about" className="section-block section-anchor" aria-labelledby="about-title">
+      <SectionHeader id="about-title" eyebrow="About" title="Background and engineering focus." />
 
-      <div className="grid gap-12 md:grid-cols-5">
-        <div className="md:col-span-3">
-          <div className="space-y-5 text-base leading-relaxed text-bone-1">
-            {about.paragraphs.map((p, i) => (
-              <p key={i}>{p}</p>
-            ))}
-          </div>
+      <div className="about-grid">
+        <div className="about-copy">
+          {about.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
         </div>
-
-        <aside className="md:col-span-2">
-          <div className="panel p-5">
-            <div className="section-label mb-4">
-              <span className="text-amber-glow">●</span>
-              Education
-            </div>
-            <div className="space-y-1">
-              <p className="text-bone-0">{education.degree}</p>
-              <p className="text-mono-sm text-bone-1">{education.school}</p>
-              <p className="text-mono-xs text-bone-2">
-                {education.period} · GPA {education.gpa}
-              </p>
-            </div>
-            <div className="mt-5 border-t border-ink-3 pt-4">
-              <p className="mb-2 text-mono-xs uppercase tracking-widest2 text-bone-3">
-                Coursework
-              </p>
-              <ul className="flex flex-wrap gap-1.5">
-                {education.coursework.map((c) => (
-                  <li key={c} className="pill">
-                    {c}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </aside>
+        <div className="principles-card">
+          <p className="mini-label">How I work</p>
+          <ol>
+            {about.principles.map((principle, index) => (
+              <li key={principle}>
+                <span>{String(index + 1).padStart(2, '0')}</span>
+                {principle}
+              </li>
+            ))}
+          </ol>
+        </div>
       </div>
     </section>
   );

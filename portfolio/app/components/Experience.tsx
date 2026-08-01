@@ -1,44 +1,35 @@
-import { experience } from '@/lib/data';
+import { education, experience } from '@/lib/data';
 import { SectionHeader } from './SectionHeader';
 
 export function Experience() {
   return (
-    <section id="experience" className="container-prose py-24 md:py-32">
-      <SectionHeader number="02" title="Experience" meta="work history" />
+    <section id="experience" className="section-block section-anchor" aria-labelledby="experience-title">
+      <SectionHeader id="experience-title" eyebrow="Experience & education" title="System, network, and security experience." />
 
-      <ol className="space-y-10">
-        {experience.map((job, idx) => (
-          <li key={idx} className="rail">
-            <span className="rail-dot" aria-hidden />
-            <article className="space-y-4">
-              <header className="flex flex-col gap-1">
-                <div className="flex flex-wrap items-baseline justify-between gap-3">
-                  <h3 className="text-lg font-medium text-bone-0">{job.role}</h3>
-                  <p className="text-mono-xs uppercase tracking-widest2 text-bone-2">
-                    {job.period}
-                  </p>
-                </div>
-                <p className="text-mono-sm text-amber-glow/90">
-                  {job.company}
-                  <span className="text-bone-3"> · </span>
-                  <span className="text-bone-2">{job.location}</span>
-                </p>
-              </header>
-
-              <ul className="space-y-2 text-bone-1">
-                {job.bullets.map((bullet, i) => (
-                  <li key={i} className="flex gap-3 text-mono-sm leading-relaxed">
-                    <span className="select-none text-amber-glow/60" aria-hidden>
-                      ▸
-                    </span>
-                    <span>{bullet}</span>
-                  </li>
-                ))}
-              </ul>
-            </article>
-          </li>
+      <div className="timeline">
+        {experience.map((job) => (
+          <article className="timeline-row" key={`${job.company}-${job.role}`}>
+            <div className="timeline-period">{job.period}</div>
+            <div className="timeline-content">
+              <p className="timeline-meta">{job.company} · {job.location}</p>
+              <h3>{job.role}</h3>
+              <p className="timeline-summary">{job.summary}</p>
+              <ul>{job.bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul>
+            </div>
+          </article>
         ))}
-      </ol>
+
+        <article className="timeline-row timeline-education">
+          <div className="timeline-period">{education.period}</div>
+          <div className="timeline-content">
+            <p className="timeline-meta">{education.school} · GPA {education.gpa}</p>
+            <h3>{education.degree}</h3>
+            <ul className="coursework-list" aria-label="Relevant coursework">
+              {education.coursework.map((course) => <li key={course}>{course}</li>)}
+            </ul>
+          </div>
+        </article>
+      </div>
     </section>
   );
 }

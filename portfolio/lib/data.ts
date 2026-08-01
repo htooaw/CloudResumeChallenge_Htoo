@@ -1,27 +1,28 @@
-// =============================================================================
-// PORTFOLIO DATA — single source of truth
-// Edit this file to update your content. No JSX changes required.
-// =============================================================================
-
 export const profile = {
   name: 'Htoo Aung Win',
+  initials: 'HAW',
   role: 'Cloud & DevOps Engineer',
-  tagline: 'Building reliable infrastructure across networking, cloud, and security.',
+  tagline:
+    'My background includes system and network engineering, security operations, and serverless AWS projects.',
   location: 'Singapore',
-  status: 'Open to opportunities',
-  // TODO: replace with your GitHub username when ready
-  github: 'https://github.com/your-username',
+  status: 'Open to cloud & DevOps opportunities',
+  gitlab: 'https://gitlab.com/h4w1/cloudresumechallenge-haw',
   linkedin: 'https://linkedin.com/in/htooaungwin',
   email: 'haw.connect@gmail.com',
-  // TODO: drop your resume PDF in /public and update filename if it changes
-  resumePdf: '/HtooAungWin_SRE.pdf',
+  resumePdf: '/Htoo_Aung_Win_Resume_DevOps.pdf',
 };
 
 export const about = {
-  // Two short paragraphs. Keep punchy — most visitors skim.
+  eyebrow: 'Background',
   paragraphs: [
-    `I work where networks, cloud, and security overlap — the layer that decides whether a system is reliable or fragile. My foundation is in enterprise networking and Linux systems, and I've been steadily moving deeper into cloud infrastructure and automation: AWS, Terraform, observability.`,
-    `Right now I'm focused on closing the gap between "it works" and "it works at 3 AM during a regional outage." That means infrastructure as code, monitoring that actually catches what matters, and architecture that fails gracefully. I'm aiming for SRE / Cloud Engineering work where reliability is the product.`,
+    `I am a Computer Engineering student at Singapore Polytechnic with internship experience in system and network engineering and security engineering. My work has included switches, wireless access points, VPNs, firewall policies, Linux diagnostics, SIEM log analysis, and infrastructure documentation.`,
+    `I am focused on cloud and DevOps roles. My projects use AWS, Terraform, GitLab CI/CD, Python, Docker, and Kubernetes, with networking and security as the technical foundation.`,
+  ],
+  principles: [
+    'Automate repeatable work',
+    'Design for failure',
+    'Make systems observable',
+    'Document the operating model',
   ],
 };
 
@@ -30,6 +31,7 @@ export type Experience = {
   company: string;
   location: string;
   period: string;
+  summary: string;
   bullets: string[];
 };
 
@@ -39,105 +41,102 @@ export const experience: Experience[] = [
     company: 'Zectech Pte Ltd',
     location: 'Singapore',
     period: 'Sep 2025 — Feb 2026',
+    summary: 'Troubleshot infrastructure and connectivity across 20–30 client environments.',
     bullets: [
-      'Supported availability and reliability of infrastructure systems across multiple client environments',
-      'Deployed and configured enterprise network infrastructure including Layer 2/3 switches, wireless access points, and endpoint systems',
-      'Configured and maintained secure connectivity (VPN, firewall policies, NAT) for stable and reliable system communication',
-      'Used Linux CLI tools for system diagnostics, log inspection, process analysis, and performance monitoring',
-      'Maintained infrastructure documentation including topology diagrams, configuration backups, and asset inventory',
+      'Investigated network, endpoint, and performance issues using Linux command-line tools and log analysis.',
+      'Deployed Layer 2/3 switches, wireless access points, endpoints, and AWS and DigitalOcean workloads.',
+      'Configured OpenVPN, firewall policies, NAT, and port forwarding, including hybrid AWS-to-on-premises connectivity.',
+      'Maintained network diagrams, configuration backups, asset records, and incident documentation.',
     ],
   },
   {
-    role: 'Security System Engineer',
+    role: 'Security System Engineer (Part-time)',
     company: 'AGB Communication Co., Ltd',
     location: 'Remote',
-    period: 'Aug 2025 — Feb 2026',
+    period: 'Sep 2025 — Feb 2026',
+    summary: 'Assessed client infrastructure and supported remediation of security findings.',
     bullets: [
-      'Conducted infrastructure and network security assessments to identify risks impacting system stability',
-      'Performed log analysis and anomaly detection using SIEM tooling for incident detection and response workflows',
-      'Evaluated network segmentation, firewall policies, and access controls to improve resilience and reduce risk exposure',
-      'Collaborated with engineering teams to implement secure infrastructure improvements without service disruption',
-      'Produced technical reports with risk analysis and remediation strategies',
+      'Identified multiple low- and medium-severity vulnerabilities across client environments.',
+      'Investigated logs and anomalies in Wazuh SIEM to support incident detection, triage, and response.',
+      'Reviewed segmentation, firewall policies, and access controls; worked with engineers to remediate findings without service disruption.',
+      'Produced reports with risk analysis, supporting evidence, and prioritized remediation recommendations.',
     ],
   },
 ];
 
 export type Project = {
   name: string;
-  status: 'live' | 'archived' | 'wip';
-  summary: string;
-  highlights: string[];
+  kicker: string;
+  status: 'Live' | 'Case study';
+  summaryLabel?: string;
+  problem: string;
+  architecture: string[];
+  implementation: string[];
+  reliability: string[];
+  evidence: string[];
   stack: string[];
-  // TODO: add github link when public
   repo?: string;
   demo?: string;
+  accent: 'orange' | 'lime';
 };
 
 export const projects: Project[] = [
   {
-    name: 'Highly Available AWS Web Infrastructure',
-    status: 'live',
-    summary:
-      'Multi-tier AWS architecture designed for high availability and fault tolerance across multiple availability zones.',
-    highlights: [
-      'Designed VPC with public/private subnets and route tables across multiple AZs',
-      'Implemented Application Load Balancer and Auto Scaling Group for fault tolerance',
-      'Deployed EC2 instances (Linux + Windows) using user-data scripts for automated provisioning',
-      'Configured RDS as managed database layer integrated with the application tier',
-      'Applied security groups, network segmentation, and least-privilege access between tiers',
-      'Monitored resource health and availability with CloudWatch metrics and logs',
-      'Documented limitations of RDS replication under IAM constraints and proposed improvements',
+    name: 'Cloud Resume Challenge',
+    kicker: '16-step cloud project · serverless AWS · multi-environment delivery',
+    status: 'Live',
+    summaryLabel: 'Challenge brief',
+    problem:
+      'The Cloud Resume Challenge is a 16-step project specification: earn a cloud certification; publish a styled HTML resume on S3 with HTTPS and custom DNS; add a JavaScript visitor counter backed by DynamoDB, API Gateway, Lambda, and Python; test the code; define the infrastructure as code; use source control and CI/CD; then document the work in a blog post. I used that specification as the baseline and extended it into separate test and production environments.',
+    architecture: ['Route 53', 'CloudFront', 'Private S3', 'API Gateway', 'Lambda', 'DynamoDB'],
+    implementation: [
+      'Built the Next.js and TypeScript static frontend and Python serverless backend across two AWS accounts; Terraform provisions approximately 40 resources per environment.',
+      'Built a Python Lambda and DynamoDB visitor counter behind API Gateway, using atomic updates and unit tests with pytest and moto.',
+      'Reused one Terraform codebase across test and production workspaces in separate AWS accounts, with state managed in HCP Terraform.',
+      'Created GitLab pipelines using OIDC and short-lived AWS credentials for unit tests, environment plans and applies, frontend deployment, browser smoke tests, and test teardown.',
     ],
-    stack: ['AWS VPC', 'EC2', 'ALB', 'Auto Scaling', 'RDS', 'CloudWatch', 'IAM'],
-    // repo: 'https://github.com/your-username/aws-ha-infra',
+    reliability: [
+      'GitLab jobs assume AWS roles through OIDC, so the pipeline does not store long-lived AWS access keys.',
+      'CloudWatch alarms route through SNS and a notifier Lambda to Slack; the webhook is stored in SSM Parameter Store.',
+      'CloudFront Origin Access Control keeps the S3 bucket private, while Terraform prevent_destroy rules protect the CI identity resources.',
+    ],
+    evidence: ['Core CRC build live', 'Test + production environments', 'Unit + Playwright tests', 'Final blog post pending'],
+    stack: ['AWS', 'Terraform', 'HCP Terraform', 'GitLab CI', 'Next.js', 'TypeScript', 'Python', 'Lambda', 'DynamoDB', 'CloudWatch'],
+    repo: 'https://gitlab.com/h4w1/cloudresumechallenge-haw',
+    demo: 'https://htooaungwin.com',
+    accent: 'orange',
+  },
+  {
+    name: 'Highly Available AWS Web Infrastructure',
+    kicker: 'Multi-AZ application architecture',
+    status: 'Case study',
+    problem:
+      'Design a multi-tier AWS environment that keeps the application tier replaceable and distributes traffic across availability zones.',
+    architecture: ['Route 53', 'ALB', 'Auto Scaling', 'EC2', 'Private subnets', 'RDS'],
+    implementation: [
+      'Designed public and private subnets, route tables, and security boundaries across multiple availability zones.',
+      'Placed Linux and Windows workloads behind an Application Load Balancer and Auto Scaling Group.',
+      'Automated instance configuration with user data and connected the application tier to managed RDS.',
+    ],
+    reliability: [
+      'Applied network segmentation and least-privilege traffic paths between tiers.',
+      'Used CloudWatch health and performance signals to observe the environment.',
+      'Documented the RDS replication constraint encountered under the lab IAM policy and the production improvement path.',
+    ],
+    evidence: [],
+    stack: ['VPC', 'EC2', 'ALB', 'Auto Scaling', 'RDS', 'CloudWatch', 'IAM'],
+    accent: 'lime',
   },
 ];
 
 export const skills = {
-  'Cloud & Infrastructure': [
-    'AWS (EC2, S3, VPC, IAM, CloudWatch)',
-    'Azure Fundamentals',
-    'Terraform (IaC)',
-    'Windows Server',
-    'Active Directory',
-    'Microsoft Intune',
-  ],
-  'Linux & Systems': [
-    'Advanced Linux CLI',
-    'File systems & permissions',
-    'Process management',
-    'Networking stack',
-    'Endpoint deployment',
-  ],
-  'Monitoring & Observability': [
-    'Log analysis',
-    'SIEM tooling',
-    'Alert triage',
-    'Anomaly detection',
-    'Incident response',
-    'CloudWatch metrics',
-  ],
-  'Networking': [
-    'Layer 2/3 switching & routing',
-    'VLANs & inter-VLAN routing',
-    'TCP/IP, DNS, DHCP',
-    'VPN (IPsec/SSL)',
-    'NAT / port forwarding',
-    'Firewall policy configuration',
-  ],
-  'Security': [
-    'Network security assessment',
-    'Vulnerability identification',
-    'Firewall hardening',
-    'Access control',
-    'Penetration testing methodology',
-  ],
-  'DevOps Fundamentals': [
-    'Git & branching workflows',
-    'CI/CD pipeline concepts',
-    'Infrastructure as Code',
-    'Technical documentation',
-  ],
+  'AWS Cloud Services': ['EC2', 'VPC', 'IAM', 'Lambda', 'API Gateway', 'DynamoDB', 'RDS', 'CloudFront', 'Route 53', 'SNS', 'SSM'],
+  'Cloud & Data Platforms': ['DigitalOcean', 'Elastic Cloud', 'MongoDB'],
+  'Infrastructure as Code': ['Terraform', 'HCP Terraform', 'AWS Organizations', 'org-formation'],
+  'CI/CD & Testing': ['GitLab CI/CD', 'OIDC', 'Git', 'pytest', 'moto', 'Playwright'],
+  'Systems Administration': ['Linux', 'Windows Server', 'Active Directory'],
+  'Security & Monitoring': ['Wazuh SIEM', 'CloudWatch', 'Log analysis', 'Alert triage', 'Vulnerability assessment', 'Access control', 'Network segmentation'],
+  'Networking': ['Layer 2/3 switching', 'Routing', 'VLANs', 'TCP/IP', 'DNS', 'DHCP', 'OpenVPN', 'IPsec/SSL VPNs', 'NAT', 'Port forwarding', 'Firewall policies'],
 };
 
 export type Certification = {
@@ -147,18 +146,15 @@ export type Certification = {
 };
 
 export const certifications: Certification[] = [
-  // Cloud & Infrastructure
   { name: 'AWS Solutions Architect Associate (SAA-C03)', issuer: 'AWS', category: 'cloud' },
   { name: 'HashiCorp Terraform Associate', issuer: 'HashiCorp', category: 'cloud' },
   { name: 'AWS Cloud Practitioner', issuer: 'AWS', category: 'cloud' },
   { name: 'Azure Fundamentals (AZ-900)', issuer: 'Microsoft', category: 'cloud' },
   { name: 'Oracle Cloud Infrastructure Foundations', issuer: 'Oracle', category: 'cloud' },
   { name: 'Oracle Cloud AI Foundations', issuer: 'Oracle', category: 'cloud' },
-  // Networking
   { name: 'Cisco CCNA', issuer: 'Cisco', category: 'network' },
   { name: 'Fortinet Certified Associate', issuer: 'Fortinet', category: 'network' },
   { name: 'Ruijie Certified Network Associate', issuer: 'Ruijie', category: 'network' },
-  // Security
   { name: 'Certified Ethical Hacker (CEH)', issuer: 'EC-Council', category: 'security' },
   { name: 'eCPPT — Network & Application Security', issuer: 'INE', category: 'security' },
   { name: 'eJPT — Network Security', issuer: 'INE', category: 'security' },
@@ -170,17 +166,17 @@ export const achievements = [
   {
     year: '2024',
     title: 'Lenovo Responsible Disclosure — Hall of Fame',
-    detail: 'Identified and reported a security vulnerability in Lenovo web infrastructure through responsible disclosure.',
+    detail: 'Reported a security vulnerability in Lenovo web infrastructure through responsible disclosure.',
   },
   {
     year: '2024',
     title: 'Cisco Security Hall of Fame',
-    detail: 'Identified and reported a security vulnerability in Cisco web infrastructure through responsible disclosure.',
+    detail: 'Reported a security vulnerability in Cisco web infrastructure through responsible disclosure.',
   },
   {
     year: '2025',
     title: 'Cisco NetAcad Riders — Silver Award',
-    detail: 'Ranked among top achievers for technical skills and consistent performance in Cisco networking challenges.',
+    detail: 'Recognized for technical performance in Cisco networking challenges.',
   },
 ];
 
@@ -190,11 +186,10 @@ export const education = {
   period: '2023 — 2026',
   gpa: '3.87 / 4.0',
   coursework: [
-    'Network & Firewall Technologies',
     'Cloud Foundations',
-    'Cybersecurity Operations',
+    'Network & Firewall Technologies',
     'Enterprise Networking',
-    'Switching, Routing & Wireless',
+    'Cybersecurity Operations',
     'Network Forensics & Analysis',
   ],
 };
