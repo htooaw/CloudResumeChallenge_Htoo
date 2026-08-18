@@ -2,6 +2,7 @@ stages:
   - unittest
   - terraformplan
   - terraformapply
+  - resolve
   - build
   - deploy
   - smoketest
@@ -15,6 +16,16 @@ variables:
   BUILD_OUTPUT: portfolio/out
   TEST_ROLE_ARN: arn:aws:iam::222222222222:role/gitlab_ci_deploy
   PROD_ROLE_ARN: arn:aws:iam::111111111111:role/gitlab_ci_deploy
+
+# Shared OIDC setup. New jobs extend this; the original prod jobs still do it
+# inline and get migrated onto this template in the next step.
+.oidc_auth:
+  id_tokens:
+    AWS_TOKEN:
+      aud: $AUD
+  before_script:
+    - echo "$AWS_TOKEN" > /tmp/oidc_token
+    - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/oidc_token
 
 unit_test:
   stage: unittest
@@ -30,7 +41,7 @@ unit_test:
           - .gitlab-ci.yml
 
 terraform_plan_test:
-  environment: 
+  environment:
     name: test
   stage: terraformplan
   image:
@@ -86,7 +97,7 @@ terraform_apply_test:
           - .gitlab-ci.yml
 
 terraform_plan_prod:
-  environment: 
+  environment:
     name: prod
   stage: terraformplan
   image:
@@ -136,12 +147,93 @@ terraform_apply_prod:
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
       when: manual
-      allow_failure: false  
+      allow_failure: false
       changes:
           - infra/**
           - .gitlab-ci.yml
 
-  
+
+resolve_test_env:
+  extends: .oidc_auth
+  stage: resolve
+  needs: []
+  environment:
+    name: test
+  image:
+    name: hashicorp/terraform:1.9
+    entrypoint: [""]
+  variables:
+    TF_WORKSPACE: cloudresumechallenge-haw-test
+  script:
+    - export AWS_ROLE_ARN="$TEST_ROLE_ARN"
+    - cd infra/
+    - terraform init
+    - echo "TF_SITE_URL=$(terraform output -raw site_url)"                        >> ../deploy.env
+    - echo "TF_SITE_BUCKET=$(terraform output -raw site_bucket_name)"             >> ../deploy.env
+    - echo "TF_API_URL=$(terraform output -raw visitor_count_api_url)"            >> ../deploy.env
+    - echo "TF_CF_DIST_ID=$(terraform output -raw cloudfront_distribution_id)"    >> ../deploy.env
+    - echo "TF_ACCOUNT_ID=$(terraform output -raw current_account_id)"            >> ../deploy.env
+    - cat ../deploy.env
+  artifacts:
+    reports:
+      dotenv: deploy.env
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - portfolio/**
+        - infra/**
+        - .gitlab-ci.yml
+
+build_site_test:
+  stage: build
+  image: node:lts-alpine
+  needs:
+    - resolve_test_env
+  script:
+    - echo "Building against API $TF_API_URL"
+    - cd portfolio
+    - npm install
+    - NEXT_PUBLIC_VISITOR_COUNT_API="$TF_API_URL" npm run build
+  artifacts:
+    paths:
+      - portfolio/out
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - portfolio/**
+        - infra/**
+        - .gitlab-ci.yml
+
+deploy_site_test:
+  extends: .oidc_auth
+  stage: deploy
+  needs:
+    - resolve_test_env
+    - build_site_test
+  environment:
+    name: test
+    url: $TF_SITE_URL
+  image:
+    name: amazon/aws-cli:latest
+    entrypoint: [""]
+  script:
+    - export AWS_ROLE_ARN="$TEST_ROLE_ARN"
+    - aws sts get-caller-identity
+    - test "$(aws sts get-caller-identity --query Account --output text)" = "$TF_ACCOUNT_ID"
+    - aws s3 sync ./portfolio/out "s3://$TF_SITE_BUCKET/" --delete
+    - aws cloudfront create-invalidation --distribution-id "$TF_CF_DIST_ID" --paths "/*"
+    - echo "Test site deployed to $TF_SITE_URL"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - portfolio/**
+        - infra/**
+        - .gitlab-ci.yml
+
+# ---------------------------------------------------------------------------
+# PRODUCTION APPLICATION PIPELINE (unchanged for now)
+# ---------------------------------------------------------------------------
+
 build_site:
   stage: build
   image: node:lts-alpine
@@ -200,7 +292,7 @@ smoke_test:
 
 terraform_destroy_test:
   stage: teardown
-  needs: []  
+  needs: []
   environment:
     name: test
   image:
