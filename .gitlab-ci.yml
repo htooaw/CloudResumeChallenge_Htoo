@@ -27,6 +27,18 @@ variables:
     - echo "$AWS_TOKEN" > /tmp/oidc_token
     - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/oidc_token
 
+# Single definition of when the test application pipeline runs. Every job in
+# that pipeline shares it, because they are chained by `needs:` and a job whose
+# dependency was filtered out of the pipeline is a config error, not a skip.
+.test_pipeline_rules:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - portfolio/**
+        - infra/**
+        - tests/**
+        - .gitlab-ci.yml
+
 unit_test:
   stage: unittest
   image: python:3.12-slim
@@ -152,9 +164,19 @@ terraform_apply_prod:
           - infra/**
           - .gitlab-ci.yml
 
+# ---------------------------------------------------------------------------
+# TEST ENVIRONMENT APPLICATION PIPELINE
+#
+# Reads the deployment target out of Terraform instead of hardcoding it, so a
+# freshly rebuilt test environment is deployable without editing this file.
+# All jobs use `needs:` so they are not blocked by the manual apply jobs
+# sitting pending in an earlier stage.
+# ---------------------------------------------------------------------------
 
 resolve_test_env:
-  extends: .oidc_auth
+  extends:
+    - .oidc_auth
+    - .test_pipeline_rules
   stage: resolve
   needs: []
   environment:
@@ -177,14 +199,9 @@ resolve_test_env:
   artifacts:
     reports:
       dotenv: deploy.env
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      changes:
-        - portfolio/**
-        - infra/**
-        - .gitlab-ci.yml
 
 build_site_test:
+  extends: .test_pipeline_rules
   stage: build
   image: node:lts-alpine
   needs:
@@ -197,15 +214,11 @@ build_site_test:
   artifacts:
     paths:
       - portfolio/out
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      changes:
-        - portfolio/**
-        - infra/**
-        - .gitlab-ci.yml
 
 deploy_site_test:
-  extends: .oidc_auth
+  extends:
+    - .oidc_auth
+    - .test_pipeline_rules
   stage: deploy
   needs:
     - resolve_test_env
@@ -221,14 +234,32 @@ deploy_site_test:
     - aws sts get-caller-identity
     - test "$(aws sts get-caller-identity --query Account --output text)" = "$TF_ACCOUNT_ID"
     - aws s3 sync ./portfolio/out "s3://$TF_SITE_BUCKET/" --delete
-    - aws cloudfront create-invalidation --distribution-id "$TF_CF_DIST_ID" --paths "/*"
+    # create-invalidation returns as soon as the request is accepted, so the
+    # wait is what actually guarantees the smoke test sees the new build
+    # rather than a cached copy of the previous one.
+    - INVALIDATION_ID=$(aws cloudfront create-invalidation --distribution-id "$TF_CF_DIST_ID" --paths "/*" --query 'Invalidation.Id' --output text)
+    - echo "Waiting for CloudFront invalidation $INVALIDATION_ID to complete"
+    - aws cloudfront wait invalidation-completed --distribution-id "$TF_CF_DIST_ID" --id "$INVALIDATION_ID"
     - echo "Test site deployed to $TF_SITE_URL"
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      changes:
-        - portfolio/**
-        - infra/**
-        - .gitlab-ci.yml
+
+smoke_test_test:
+  extends: .test_pipeline_rules
+  stage: smoketest
+  image: mcr.microsoft.com/playwright:v1.60.0-jammy
+  needs:
+    - resolve_test_env
+    - deploy_site_test
+  script:
+    - echo "Smoke testing $TF_SITE_URL"
+    - cd tests/browser
+    - npm install
+    - SITE_URL="$TF_SITE_URL" npx playwright test
+  artifacts:
+    when: on_failure
+    paths:
+      - tests/browser/playwright-report/
+      - tests/browser/test-results/
+    expire_in: 1 week
 
 # ---------------------------------------------------------------------------
 # PRODUCTION APPLICATION PIPELINE (unchanged for now)
