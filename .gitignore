@@ -37,3 +37,7 @@ tests/browser/test-results/
 **/*.tfstate
 **/*.tfstate.*
 infra/*.zip
+
+# Local copies holding real account IDs, root emails and SSO identifiers
+*.local.yml
+*.bundle

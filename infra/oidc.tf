@@ -14,8 +14,8 @@ resource "aws_iam_openid_connect_provider" "gitlab" {
 
 
 resource "aws_iam_role" "gitlab_ci_deploy" {
-  name               = "gitlab_ci_deploy"
-  assume_role_policy = data.aws_iam_policy_document.gitlab_trust.json # the trust policy — answers "who can assume me?"
+  name                 = "gitlab_ci_deploy"
+  assume_role_policy   = data.aws_iam_policy_document.gitlab_trust.json # the trust policy — answers "who can assume me?"
   max_session_duration = 7200
 
   lifecycle {
@@ -33,9 +33,9 @@ data "aws_iam_policy_document" "gitlab_trust" {
       identifiers = [aws_iam_openid_connect_provider.gitlab.arn]
     }
     condition {
-      test     = "StringLike"
+      test     = "StringEquals"
       variable = "gitlab.com:sub"
-      values = ["project_path:h4w1/cloudresumechallenge-haw:*"]
+      values   = ["project_path:h4w1/cloudresumechallenge-haw:ref_type:branch:ref:main"]
     }
 
     condition {
@@ -75,7 +75,68 @@ resource "aws_iam_role_policy_attachment" "aws_resources_readonly" {
   policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
 }
 
-resource "aws_iam_role_policy_attachment" "administrator_access" {
+data "aws_iam_policy_document" "ci_deploy" {
+  statement {
+    sid    = "ServiceWritesForThisStack"
+    effect = "Allow"
+    actions = [
+      "s3:*",
+      "cloudfront:*",
+      "acm:*",
+      "route53:*",
+      "route53domains:Get*",
+      "dynamodb:*",
+      "lambda:*",
+      "apigateway:*",
+      "cloudwatch:*",
+      "logs:*",
+      "sns:*",
+      "ssm:*",
+      "tag:*",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "IamForRolesAndPoliciesOnly"
+    effect = "Allow"
+    actions = [
+      "iam:*Role*",
+      "iam:*Policy*",
+      "iam:*OpenIDConnectProvider*",
+      "iam:PassRole",
+      "iam:TagRole",
+      "iam:UntagRole",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "DenyEscalationAndAccountLevelChanges"
+    effect = "Deny"
+    actions = [
+      "iam:*User*",
+      "iam:*Group*",
+      "iam:*AccessKey*",
+      "iam:*LoginProfile*",
+      "iam:*SAMLProvider*",
+      "iam:UpdateAccountPasswordPolicy",
+      "organizations:*",
+      "account:*",
+      "aws-portal:*",
+      "sso:*",
+      "identitystore:*",
+    ]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_policy" "ci_deploy" {
+  name   = "gitlab_ci_deploy_writes"
+  policy = data.aws_iam_policy_document.ci_deploy.json
+}
+
+resource "aws_iam_role_policy_attachment" "ci_deploy" {
   role       = aws_iam_role.gitlab_ci_deploy.name
-  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+  policy_arn = aws_iam_policy.ci_deploy.arn
 }

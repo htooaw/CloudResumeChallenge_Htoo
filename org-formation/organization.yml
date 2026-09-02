@@ -8,7 +8,7 @@ Organization:
       Alias: org-formation-master
       RootEmail: <org-root-email>
       AccountName: Htoo Aung Win General
-      AccountId: '333333333333'
+      AccountId: '<management-account-id>'
 
   OrganizationRoot:
     Type: OC::ORG::OrganizationRoot

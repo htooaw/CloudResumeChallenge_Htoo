@@ -11,14 +11,12 @@ stages:
 variables:
   AWS_DEFAULT_REGION: ap-southeast-1
   S3_BUCKET: h4wops.com
-  ROLE_ARN: arn:aws:iam::111111111111:role/gitlab_ci_deploy
+  ROLE_ARN: arn:aws:iam::${PROD_ACCOUNT_ID}:role/gitlab_ci_deploy
   AUD: https://gitlab.com
   BUILD_OUTPUT: portfolio/out
-  TEST_ROLE_ARN: arn:aws:iam::222222222222:role/gitlab_ci_deploy
-  PROD_ROLE_ARN: arn:aws:iam::111111111111:role/gitlab_ci_deploy
+  TEST_ROLE_ARN: arn:aws:iam::${TEST_ACCOUNT_ID}:role/gitlab_ci_deploy
+  PROD_ROLE_ARN: arn:aws:iam::${PROD_ACCOUNT_ID}:role/gitlab_ci_deploy
 
-# Shared OIDC setup. New jobs extend this; the original prod jobs still do it
-# inline and get migrated onto this template in the next step.
 .oidc_auth:
   id_tokens:
     AWS_TOKEN:
@@ -27,9 +25,6 @@ variables:
     - echo "$AWS_TOKEN" > /tmp/oidc_token
     - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/oidc_token
 
-# Single definition of when the test application pipeline runs. Every job in
-# that pipeline shares it, because they are chained by `needs:` and a job whose
-# dependency was filtered out of the pipeline is a config error, not a skip.
 .test_pipeline_rules:
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
@@ -164,15 +159,6 @@ terraform_apply_prod:
           - infra/**
           - .gitlab-ci.yml
 
-# ---------------------------------------------------------------------------
-# TEST ENVIRONMENT APPLICATION PIPELINE
-#
-# Reads the deployment target out of Terraform instead of hardcoding it, so a
-# freshly rebuilt test environment is deployable without editing this file.
-# All jobs use `needs:` so they are not blocked by the manual apply jobs
-# sitting pending in an earlier stage.
-# ---------------------------------------------------------------------------
-
 resolve_test_env:
   extends:
     - .oidc_auth
@@ -234,9 +220,6 @@ deploy_site_test:
     - aws sts get-caller-identity
     - test "$(aws sts get-caller-identity --query Account --output text)" = "$TF_ACCOUNT_ID"
     - aws s3 sync ./portfolio/out "s3://$TF_SITE_BUCKET/" --delete
-    # create-invalidation returns as soon as the request is accepted, so the
-    # wait is what actually guarantees the smoke test sees the new build
-    # rather than a cached copy of the previous one.
     - INVALIDATION_ID=$(aws cloudfront create-invalidation --distribution-id "$TF_CF_DIST_ID" --paths "/*" --query 'Invalidation.Id' --output text)
     - echo "Waiting for CloudFront invalidation $INVALIDATION_ID to complete"
     - aws cloudfront wait invalidation-completed --distribution-id "$TF_CF_DIST_ID" --id "$INVALIDATION_ID"
@@ -260,10 +243,6 @@ smoke_test_test:
       - tests/browser/playwright-report/
       - tests/browser/test-results/
     expire_in: 1 week
-
-# ---------------------------------------------------------------------------
-# PRODUCTION APPLICATION PIPELINE (unchanged for now)
-# ---------------------------------------------------------------------------
 
 build_site:
   stage: build
@@ -300,7 +279,6 @@ deploy_site:
       changes:
         - portfolio/**
         - .gitlab-ci.yml
-
 
 smoke_test:
   stage: smoketest

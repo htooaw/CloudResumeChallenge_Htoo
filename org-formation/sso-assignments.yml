@@ -8,13 +8,13 @@ DefaultOrganizationBindingRegion: ap-southeast-1
 Parameters:
   IdentityStoreId:
     Type: String
-    Default: <identity-store-id>
+    Default: '<identity-store-id>'
   InstanceArn:
     Type: String
-    Default: arn:aws:sso:::instance/<sso-instance-id>
+    Default: '<sso-instance-arn>'
   AdminUserPrincipalId:
     Type: String
-    Default: <admin-user-principal-id>
+    Default: '<admin-user-principal-id>'
 
 Resources:
   AdministratorAccessPermissionSet:
@@ -38,5 +38,5 @@ Resources:
       PermissionSetArn: !GetAtt AdministratorAccessPermissionSet.PermissionSetArn
       PrincipalId: !Ref AdminUserPrincipalId
       PrincipalType: USER
-      TargetId: '222222222222'
+      TargetId: '<test-account-id>'
       TargetType: AWS_ACCOUNT
