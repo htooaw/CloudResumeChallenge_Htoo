@@ -41,3 +41,6 @@ infra/*.zip
 # Local copies holding real account IDs, root emails and SSO identifiers
 *.local.yml
 *.bundle
+
+# The Cloud Resume Challenge book (large binary, do not commit)
+TheCloudResumeChallenge.pdf
