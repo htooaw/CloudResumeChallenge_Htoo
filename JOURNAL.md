@@ -392,3 +392,72 @@ A few other things I'd add given more time:
 - **Visual regression testing.** Playwright supports screenshot diffing, take a screenshot on every deploy, compare to a baseline, fail if anything visually changed unexpectedly. Catches CSS regressions that pure assertion-based tests miss. Overkill for a portfolio, but a real production team would use it.
 - **Run smoke tests against a staging environment, not prod.** Right now my smoke tests hit `https://htooaungwin.com` directly — the same URL my visitors use. If a test load somehow corrupts the visitor counter (it wouldn't, since reads are idempotent, but in a more complex system…), it'd affect real users. The cleaner pattern is to deploy to staging first, smoke test against staging, then promote to prod. That's Chunk 4 territory.
 
+# CHUNK 4
+
+### What aspect of Chunk 4's work did you find the most difficult?
+
+Honestly not the parts I expected. Migrating my Terraform state to HCP and splitting the config into test and prod went fine, five clean steps over a few days at the end of May, no reverts. Same with the multi-environment refactor in August, the `use_custom_domain` conditionals and the outputs and the dotenv resolve pattern all just worked. I thought those would be the hard bits and they weren't.
+
+What actually tripped me up was OIDC, again, but across environments this time, and it got me twice in two completely different disguises. The first time it looked like an IAM problem and was an IAM problem. The second time it also looked like an IAM problem and wasn't one at all. The CI stage ordering also got me once, on a destroy job that just silently refused to run. So the honest answer is: the identity and the pipeline plumbing were hard, and the infrastructure code itself mostly wasn't.
+
+### Which IaC tool did you choose? Why?
+
+Terraform, with HCP Terraform for the remote state. The base challenge suggests AWS SAM but I went with Terraform for two reasons. One, it's not AWS-only, and since I'm going for DevOps roles I wanted the tool that transfers across clouds rather than the one tied to AWS serverless. Two, I was already studying for the Terraform Associate cert, so the practice was doubly useful. The tradeoff is I had to manage state myself, which is what pushed me onto HCP in the first place. SAM would have been less setup for a serverless-only project, but I didn't want to be boxed into serverless-only.
+
+### Note one or two problems you overcame; include the error messages and how you fixed them.
+
+#### Problem 1: STS denying the assume-role from CI, and a condition that matched too literally
+
+When I added the test plan stage in CI (13 July), the first thing that broke was the provider. I had `aws_profile` references left in from local development, which mean nothing on a runner, so I stripped those out. Then STS started denying the assume-role. My OIDC trust policy was using `StringEquals` on the `sub` claim with what I thought was the right value, but it kept getting rejected.
+
+Instead of guessing at the claim format again (I'd already been through the `sub` format pain in Chunk 1), I added a debug step that decoded the JWT payload right there in the job so I could see the actual `sub` the runner was sending. That's what showed me the problem: my condition value had a wildcard in it, but `StringEquals` was matching it literally, character for character, wildcard and all, so nothing ever matched. The fix was `StringLike` instead of `StringEquals`, then I ripped the token-decode debug back out.
+
+I don't have the exact STS error string saved, which annoys me, because in Chunks 1 to 3 I always pasted the real message. If the GitLab job logs from 13 July still exist I want to pull the actual denial text before it ages out.
+
+(Related, and not my proudest moment: to get `apply` working that same day I gave the CI role `AdministratorAccess`. It was meant to be temporary. It was not temporary. It stayed that way for months until I finally went back to scope it down.)
+
+#### Problem 2: A prod failure that pretended to be Route 53 and was actually a typo'd CI variable
+
+This is the one I'd actually write a blog about. On 17 July I added the prod plan and apply jobs with a manual gate, and the prod plan failed. My first hypothesis was permissions or identity, the prod account is a different account, so of course I assumed the role couldn't see something. So I installed the aws-cli into the Terraform image and ran a caller-identity check plus a Route 53 hosted-zone lookup for `htooaungwin.com`:
+
+```yaml
+- aws sts get-caller-identity
+- aws route53 list-hosted-zones --query 'HostedZones[?Name==`htooaungwin.com.`]'
+```
+
+That came back fine. Identity was correct, the hosted zone was there. So the whole permissions theory was wrong.
+
+Then I switched to suspecting the variables themselves, and this is the debug step that cracked it:
+
+```yaml
+- echo "TF_VAR_site_domain='$TF_VAR_site_domain'"
+- echo "TF_VAR_use_custom_domain='$TF_VAR_use_custom_domain'"
+```
+
+The single quotes around the values were deliberate, I'd stopped looking for a missing permission and started looking for an empty string or stray whitespace. And that's what it was: the `site_domain` value in my GitLab CI variables was wrong. A bad variable, presenting as a Route 53 / IAM failure in a different account. Two hypotheses, each one tested with a throwaway debug commit, the wrong one thrown away. Fixed the CI variable, reverted the echoes.
+
+The lesson that stuck with me here is that in prod, everything looks like a permissions problem at first, because prod is the unfamiliar account. It made me jump to the scary explanation before checking the boring one.
+
+### The mod: DevOps — All The World's A Stage
+
+This is the mod that reshaped the project, and it's also where the teardown got messy, so I'll be honest about that instead of pretending it went smoothly.
+
+I followed the book's main recommendation: a separate AWS account per environment under my AWS Organization, not fake stages inside one account. Test and prod are the same Terraform files applied into two different accounts, picked apart by `TF_WORKSPACE` and a per-environment tfvars. The pipeline runs `terraform plan` against test on a merge request, both applies are `when: manual` so a human has to click to promote, and because the test site has no custom domain, a `resolve` stage runs `terraform output` and writes the real CloudFront URL, API URL, bucket and distribution ID into a dotenv file that the build, deploy and Playwright jobs read. That's how the smoke tests find the right URL in an environment that doesn't have a fixed domain.
+
+Before I trusted any of it I did the same thing I did with the Playwright tests in Chunk 3, I deliberately broke a unit test and pushed it, just to watch the `unit_test` job actually go red, then reverted. A test that's never seen failing is theatre.
+
+The teardown is where it went sideways. I added a destroy job for the test environment (step 6 of the mod, so old stacks don't sit around costing money). Then I pushed two commits that changed nothing at all, both titled "trigger fresh pipeline for destroy test", because I was trying to get the job to fire and it just wouldn't. The reason it wouldn't run was the stage ordering: the destroy job was sitting in a late stage waiting on upstream stages that my `rules:` had skipped, so it never became eligible. I fixed that by giving it `needs: []` to cut it loose from the upstream stages.
+
+Then two worse things happened. The credentials expired mid-teardown, because CloudFront takes fifteen to twenty minutes to tear down and my CI role's session was shorter than that, so I bumped `max_session_duration` to two hours. And the destroy took the OIDC provider and the CI role down with it, which meant CI had no identity left to rebuild anything. I had to go recover access by hand through SSO before the pipeline could stand the test environment back up.
+
+That's why `prevent_destroy` is on the OIDC provider and the CI role. I want to be clear in my own notes that it was not a clever upfront design decision, I added it two days later, on 19 July, after a destroy had already removed the exact identity CI needed to function. It's a scar. The real lesson is that those identity resources are bootstrap infrastructure and live on a different lifecycle than the site, and I learned that the expensive way.
+
+Why this mod: it's the difference between "I automated a deploy" and "I built a promotion pipeline across two accounts with a manual gate and automated teardown." The second one is closer to the actual job. And the way separate accounts make "oops I deployed test config to prod" structurally impossible, rather than something I have to remember not to do, was the thing that clicked hardest.
+
+### What's something you'd have done differently, or added, if you'd had more time?
+
+- Scope the CI role down properly. `AdministratorAccess` was supposed to be a same-day hack and it long outlived that. Splitting the bootstrap identity resources into their own state so the teardown can't touch them is the same fix from a different angle.
+- Save the actual error strings. I have the commits and I know what broke, but I don't have the STS denial text or the prod plan failure text the way I quoted real messages in earlier chunks. I want to pull those from the July job logs before they disappear.
+- Close the last gap on back-end CI. Unit tests run in CI now, but a pure Lambda-code change and an infra change still don't travel through the exact same gated apply. Step 14 of the challenge wants push code, tests pass, deploy, in one flow.
+- Per-PR isolated test stacks. Right now test is one shared environment, so two open merge requests would collide. The book's answer is a fresh copy per PR with unique names, and I've already removed most hardcoded names, so it's a natural next step.
+- A budget alarm per account. With two accounts now, a runaway test environment could quietly cost money and I'd rather find out from an alert than a bill.
