@@ -1,197 +1,104 @@
+# One straight line:
+#   unit tests → TEST (apply → build → deploy → smoke) → plan prod → ⏸ click → PROD (apply → build → deploy → smoke)
+# If any job fails, everything after it stops. Prod is only offered after test passes.
+
 stages:
-  - unittest
-  - terraformplan
-  - terraformapply
-  - resolve
-  - build
-  - deploy
-  - smoketest
+  - unit
+  - test-apply
+  - test-build
+  - test-deploy
+  - test-smoke
+  - prod-plan
+  - prod-apply
+  - prod-build
+  - prod-deploy
+  - prod-smoke
   - teardown
 
 variables:
   AWS_DEFAULT_REGION: ap-southeast-1
-  S3_BUCKET: h4wops.com
-  ROLE_ARN: arn:aws:iam::${PROD_ACCOUNT_ID}:role/gitlab_ci_deploy
   AUD: https://gitlab.com
-  BUILD_OUTPUT: portfolio/out
-  TEST_ROLE_ARN: arn:aws:iam::${TEST_ACCOUNT_ID}:role/gitlab_ci_deploy
-  PROD_ROLE_ARN: arn:aws:iam::${PROD_ACCOUNT_ID}:role/gitlab_ci_deploy
 
-.oidc_auth:
+# ---------------------------------------------------------------------------
+# When things run
+# ---------------------------------------------------------------------------
+
+# Push to main that touches app, infra, tests or the pipeline itself.
+# Docs-only pushes (JOURNAL.md, README.md) run nothing.
+.on_main:
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes: &relevant_paths
+        - lambda/**
+        - infra/**
+        - portfolio/**
+        - tests/**
+        - .gitlab-ci.yml
+
+# ---------------------------------------------------------------------------
+# Which environment (account, role, HCP workspace)
+# ---------------------------------------------------------------------------
+
+.env_test:
+  variables:
+    TF_WORKSPACE: cloudresumechallenge-haw-test
+    AWS_ROLE_ARN: arn:aws:iam::${TEST_ACCOUNT_ID}:role/gitlab_ci_deploy
+  environment:
+    name: test
+
+.env_prod:
+  variables:
+    TF_WORKSPACE: cloudresumechallenge-haw-prod
+    AWS_ROLE_ARN: arn:aws:iam::${PROD_ACCOUNT_ID}:role/gitlab_ci_deploy
+  environment:
+    name: prod
+
+# ---------------------------------------------------------------------------
+# Step templates, written once, used by both test and prod
+# ---------------------------------------------------------------------------
+
+# GitLab gives the job a short-lived JWT; the AWS SDK trades it for
+# temporary credentials using AWS_ROLE_ARN + AWS_WEB_IDENTITY_TOKEN_FILE.
+.aws_oidc:
+  variables:
+    AWS_WEB_IDENTITY_TOKEN_FILE: /tmp/oidc_token
   id_tokens:
     AWS_TOKEN:
       aud: $AUD
   before_script:
-    - echo "$AWS_TOKEN" > /tmp/oidc_token
-    - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/oidc_token
+    - echo "$AWS_TOKEN" > "$AWS_WEB_IDENTITY_TOKEN_FILE"
 
-.test_pipeline_rules:
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      changes:
-        - portfolio/**
-        - infra/**
-        - tests/**
-        - .gitlab-ci.yml
-
-unit_test:
-  stage: unittest
-  image: python:3.12-slim
-  script:
-    - pip install -r lambda/visitor_count/requirements-dev.txt
-    - cd lambda/visitor_count
-    - python -m pytest tests/ -v
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      changes:
-          - lambda/**
-          - .gitlab-ci.yml
-
-terraform_plan_test:
-  environment:
-    name: test
-  stage: terraformplan
+.terraform:
+  extends: .aws_oidc
   image:
     name: hashicorp/terraform:1.9
     entrypoint: [""]
-  id_tokens:
-    AWS_TOKEN:
-      aud: $AUD
-  variables:
-    TF_WORKSPACE: cloudresumechallenge-haw-test
-  script:
-    - echo "$AWS_TOKEN" > /tmp/oidc_token
-    - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/oidc_token
-    - export AWS_ROLE_ARN="$TEST_ROLE_ARN"
-    - cd infra/
-    - terraform init
-    - terraform plan
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-          - infra/**
-          - .gitlab-ci.yml
-    - if: $CI_COMMIT_BRANCH == "main"
-      changes:
-          - infra/**
-          - .gitlab-ci.yml
 
-terraform_apply_test:
+# Apply, then save the outputs so later jobs know the URL, bucket and API.
+.apply:
+  extends: .terraform
   environment:
-    name: test
-  stage: terraformapply
-  image:
-    name: hashicorp/terraform:1.9
-    entrypoint: [""]
-  id_tokens:
-    AWS_TOKEN:
-      aud: $AUD
-  variables:
-    TF_WORKSPACE: cloudresumechallenge-haw-test
+    action: prepare
   script:
-    - echo "$AWS_TOKEN" > /tmp/oidc_token
-    - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/oidc_token
-    - export AWS_ROLE_ARN="$TEST_ROLE_ARN"
     - cd infra/
-    - terraform init
-    - terraform apply -auto-approve
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      when: manual
-      allow_failure: false
-      changes:
-          - infra/**
-          - .gitlab-ci.yml
-
-terraform_plan_prod:
-  environment:
-    name: prod
-  stage: terraformplan
-  image:
-    name: hashicorp/terraform:1.9
-    entrypoint: [""]
-  id_tokens:
-    AWS_TOKEN:
-      aud: $AUD
-  variables:
-    TF_WORKSPACE: cloudresumechallenge-haw-prod
-  script:
-    - echo "$AWS_TOKEN" > /tmp/oidc_token
-    - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/oidc_token
-    - export AWS_ROLE_ARN="$PROD_ROLE_ARN"
-    - cd infra/
-    - terraform init
-    - terraform plan
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes:
-            - infra/**
-            - .gitlab-ci.yml
-    - if: $CI_COMMIT_BRANCH == "main"
-      changes:
-            - infra/**
-            - .gitlab-ci.yml
-
-terraform_apply_prod:
-  environment:
-    name: prod
-  stage: terraformapply
-  image:
-    name: hashicorp/terraform:1.9
-    entrypoint: [""]
-  id_tokens:
-    AWS_TOKEN:
-      aud: $AUD
-  variables:
-    TF_WORKSPACE: cloudresumechallenge-haw-prod
-  script:
-    - echo "$AWS_TOKEN" > /tmp/oidc_token
-    - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/oidc_token
-    - export AWS_ROLE_ARN="$PROD_ROLE_ARN"
-    - cd infra/
-    - terraform init
-    - terraform apply -auto-approve
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      when: manual
-      allow_failure: false
-      changes:
-          - infra/**
-          - .gitlab-ci.yml
-
-resolve_test_env:
-  extends:
-    - .oidc_auth
-    - .test_pipeline_rules
-  stage: resolve
-  needs: []
-  environment:
-    name: test
-  image:
-    name: hashicorp/terraform:1.9
-    entrypoint: [""]
-  variables:
-    TF_WORKSPACE: cloudresumechallenge-haw-test
-  script:
-    - export AWS_ROLE_ARN="$TEST_ROLE_ARN"
-    - cd infra/
-    - terraform init
-    - echo "TF_SITE_URL=$(terraform output -raw site_url)"                        >> ../deploy.env
-    - echo "TF_SITE_BUCKET=$(terraform output -raw site_bucket_name)"             >> ../deploy.env
-    - echo "TF_API_URL=$(terraform output -raw visitor_count_api_url)"            >> ../deploy.env
-    - echo "TF_CF_DIST_ID=$(terraform output -raw cloudfront_distribution_id)"    >> ../deploy.env
-    - echo "TF_ACCOUNT_ID=$(terraform output -raw current_account_id)"            >> ../deploy.env
+    - terraform init -input=false
+    - terraform apply -input=false -auto-approve
+    - echo "TF_SITE_URL=$(terraform output -raw site_url)"                     >> ../deploy.env
+    - echo "TF_SITE_BUCKET=$(terraform output -raw site_bucket_name)"          >> ../deploy.env
+    - echo "TF_API_URL=$(terraform output -raw visitor_count_api_url)"         >> ../deploy.env
+    - echo "TF_CF_DIST_ID=$(terraform output -raw cloudfront_distribution_id)" >> ../deploy.env
+    - echo "TF_ACCOUNT_ID=$(terraform output -raw current_account_id)"         >> ../deploy.env
     - cat ../deploy.env
   artifacts:
     reports:
       dotenv: deploy.env
 
-build_site_test:
-  extends: .test_pipeline_rules
-  stage: build
+# Next.js bakes the API URL into the bundle at build time,
+# so each environment needs its own build.
+.build:
   image: node:lts-alpine
-  needs:
-    - resolve_test_env
+  environment:
+    action: prepare
   script:
     - echo "Building against API $TF_API_URL"
     - cd portfolio
@@ -200,38 +107,27 @@ build_site_test:
   artifacts:
     paths:
       - portfolio/out
+    expire_in: 1 day
 
-deploy_site_test:
-  extends:
-    - .oidc_auth
-    - .test_pipeline_rules
-  stage: deploy
-  needs:
-    - resolve_test_env
-    - build_site_test
-  environment:
-    name: test
-    url: $TF_SITE_URL
+# Refuse to deploy if we're in the wrong AWS account, then sync,
+# clear the CloudFront cache, and wait so the smoke test sees the new build.
+.deploy:
+  extends: .aws_oidc
   image:
     name: amazon/aws-cli:latest
     entrypoint: [""]
+  environment:
+    url: $TF_SITE_URL
   script:
-    - export AWS_ROLE_ARN="$TEST_ROLE_ARN"
-    - aws sts get-caller-identity
     - test "$(aws sts get-caller-identity --query Account --output text)" = "$TF_ACCOUNT_ID"
     - aws s3 sync ./portfolio/out "s3://$TF_SITE_BUCKET/" --delete
     - INVALIDATION_ID=$(aws cloudfront create-invalidation --distribution-id "$TF_CF_DIST_ID" --paths "/*" --query 'Invalidation.Id' --output text)
-    - echo "Waiting for CloudFront invalidation $INVALIDATION_ID to complete"
+    - echo "Waiting for CloudFront invalidation $INVALIDATION_ID"
     - aws cloudfront wait invalidation-completed --distribution-id "$TF_CF_DIST_ID" --id "$INVALIDATION_ID"
-    - echo "Test site deployed to $TF_SITE_URL"
+    - echo "Deployed to $TF_SITE_URL"
 
-smoke_test_test:
-  extends: .test_pipeline_rules
-  stage: smoketest
+.smoke:
   image: mcr.microsoft.com/playwright:v1.60.0-jammy
-  needs:
-    - resolve_test_env
-    - deploy_site_test
   script:
     - echo "Smoke testing $TF_SITE_URL"
     - cd tests/browser
@@ -244,82 +140,109 @@ smoke_test_test:
       - tests/browser/test-results/
     expire_in: 1 week
 
-build_site:
-  stage: build
-  image: node:lts-alpine
-  script:
-    - cd portfolio
-    - npm install
-    - npm run build
-  artifacts:
-    paths:
-      - portfolio/out
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      changes:
-        - portfolio/**
-        - .gitlab-ci.yml
+# ---------------------------------------------------------------------------
+# 1. Unit tests (also the only job on merge requests)
+# ---------------------------------------------------------------------------
 
-deploy_site:
-  stage: deploy
-  image:
-    name: amazon/aws-cli:latest
-    entrypoint: [""]
-  id_tokens:
-    AWS_TOKEN:
-      aud: $AUD
+unit_test:
+  stage: unit
+  image: python:3.12-slim
   script:
-    - echo "$AWS_TOKEN" > /tmp/oidc_token
-    - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/oidc_token
-    - export AWS_ROLE_ARN="$ROLE_ARN"
-    - aws sts get-caller-identity # sanity check: prints the assumed role
-    - aws s3 sync ./portfolio/out s3://$S3_BUCKET/ --delete
+    - pip install -r lambda/visitor_count/requirements-dev.txt
+    - cd lambda/visitor_count
+    - python -m pytest tests/ -v
   rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      changes:
-        - portfolio/**
-        - .gitlab-ci.yml
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes: *relevant_paths
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes: *relevant_paths
+
+# ---------------------------------------------------------------------------
+# 2–5. Test account, fully automatic
+# ---------------------------------------------------------------------------
+
+apply_test:
+  stage: test-apply
+  extends: [.apply, .env_test, .on_main]
+  needs: [unit_test]
+
+build_test:
+  stage: test-build
+  extends: [.build, .env_test, .on_main]
+  needs: [apply_test]
+
+deploy_test:
+  stage: test-deploy
+  extends: [.deploy, .env_test, .on_main]
+  needs: [apply_test, build_test]
 
 smoke_test:
-  stage: smoketest
-  image: mcr.microsoft.com/playwright:v1.60.0-jammy
-  script:
-    - cd tests/browser
-    - npm install
-    - npx playwright test
-  artifacts:
-   when: on_failure
-   paths:
-      - tests/browser/playwright-report/
-      - tests/browser/test-results/
-   expire_in: 1 week
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      changes:
-        - portfolio/**
-        - .gitlab-ci.yml
+  stage: test-smoke
+  extends: [.smoke, .on_main]
+  needs: [apply_test, deploy_test]
 
-terraform_destroy_test:
-  stage: teardown
-  needs: []
+# ---------------------------------------------------------------------------
+# 6–10. Prod account, waits for one click
+# ---------------------------------------------------------------------------
+
+# Runs automatically once test is green, so you can read the diff before clicking.
+plan_prod:
+  stage: prod-plan
+  extends: [.terraform, .env_prod, .on_main]
   environment:
-    name: test
-  image:
-    name: hashicorp/terraform:1.9
-    entrypoint: [""]
-  id_tokens:
-    AWS_TOKEN:
-      aud: $AUD
-  variables:
-    TF_WORKSPACE: cloudresumechallenge-haw-test
+    action: prepare
+  needs:
+    - job: smoke_test
+      artifacts: false
   script:
-    - echo "$AWS_TOKEN" > /tmp/oidc_token
-    - export AWS_WEB_IDENTITY_TOKEN_FILE=/tmp/oidc_token
-    - export AWS_ROLE_ARN="$TEST_ROLE_ARN"
     - cd infra/
-    - terraform init
-    - terraform destroy -auto-approve
+    - terraform init -input=false
+    - terraform plan -input=false
+
+# The one manual gate. The pipeline pauses here until you click.
+apply_prod:
+  stage: prod-apply
+  extends: [.apply, .env_prod]
+  needs:
+    - job: plan_prod
+      artifacts: false
   rules:
-    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes: *relevant_paths
+      when: manual
+      allow_failure: false
+
+build_prod:
+  stage: prod-build
+  extends: [.build, .env_prod, .on_main]
+  needs: [apply_prod]
+
+deploy_prod:
+  stage: prod-deploy
+  extends: [.deploy, .env_prod, .on_main]
+  needs: [apply_prod, build_prod]
+
+smoke_prod:
+  stage: prod-smoke
+  extends: [.smoke, .on_main]
+  needs: [apply_prod, deploy_prod]
+
+# ---------------------------------------------------------------------------
+# Teardown, separate manual button, not part of the line
+# ---------------------------------------------------------------------------
+
+# Known issue: the OIDC provider and CI role have prevent_destroy, and Terraform
+# refuses a destroy plan that includes them. Expected to fail until those two
+# move into their own state.
+destroy_test:
+  stage: teardown
+  extends: [.terraform, .env_test]
+  needs: []
+  script:
+    - cd infra/
+    - terraform init -input=false
+    - terraform destroy -input=false -auto-approve
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: manual
       allow_failure: true
