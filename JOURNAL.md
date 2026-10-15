@@ -1,4 +1,4 @@
-# CHUNK1
+# CHUNK 1
 ### What aspect of Chunk 1's work did you find the most difficult?
 
 It would be understanding IAM and OIDC authentication properly when trying to automate deployments from GitLab CI/CD to AWS. At first, I thought CI/CD was simply "push code and deploy automatically," but while building the project I realized there were many security concepts happening behind the scenes.
@@ -121,7 +121,7 @@ Pipeline went green on the next push.
 The lesson I took from this: when something in CI fails in a weird way, don't guess — add a debug line that prints the actual state. `wc -c` to check token length, `aws sts get-caller-identity` to confirm authentication, `ls -la` to verify file existence. CI logs are the only window I have into what's happening on the runner, so I have to make sure I'm capturing useful information.
 
 
-# What's something you'd have done differently, or added, if you'd had more time?
+### What's something you'd have done differently, or added, if you'd had more time?
 
 If I had more time, the biggest thing I would change is setting up remote Terraform state from the start instead of letting it live on my laptop. Mid-project I almost committed `terraform.tfstate` to git because my `.gitignore` didn't catch it in time, and I had to wipe my GitLab repo and start over to avoid leaking AWS resource details. A remote backend like HCP Terraform or an S3 + DynamoDB setup would have removed that risk entirely, and would also have prepared me for running Terraform from CI later in Chunk 4.
 
@@ -184,7 +184,7 @@ I also hit a real Terraform state-drift situation halfway through the project. A
 
 Another thing I learned was that Terraform and deployment tools serve different purposes. Initially, I tried uploading the Next.js `out/` files directly using Terraform resources, but I ran into issues with incorrect MIME content types. After troubleshooting, I switched to using `aws s3 sync` inside the GitLab pipeline, which taught me an important DevOps principle: infrastructure management and application deployment are usually handled separately even though they work together closely.
 
-# CHUNK1
+# CHUNK 2
 ### What aspect of Chunk 2's work did you find the most difficult?
 
 
@@ -461,3 +461,55 @@ Why this mod: it's the difference between "I automated a deploy" and "I built a 
 - Close the last gap on back-end CI. Unit tests run in CI now, but a pure Lambda-code change and an infra change still don't travel through the exact same gated apply. Step 14 of the challenge wants push code, tests pass, deploy, in one flow.
 - Per-PR isolated test stacks. Right now test is one shared environment, so two open merge requests would collide. The book's answer is a fresh copy per PR with unique names, and I've already removed most hardcoded names, so it's a natural next step.
 - A budget alarm per account. With two accounts now, a runaway test environment could quietly cost money and I'd rather find out from an alert than a bill.
+
+### Update, 27 September: I rebuilt the pipeline because I couldn't explain it
+
+Months after Chunk 4 I sat down to explain my own `.gitlab-ci.yml` and couldn't. It had grown in layers. The Chunk 1 prod jobs (`build_site`, `deploy_site`, `smoke_test`) were still there, and the Chunk 4 test jobs sat next to them, and both ran at the same time on a website change. Once I actually traced it, it was worse than messy:
+
+- Prod didn't wait for test. A website push deployed to prod in parallel with the test smoke test, so a broken build could reach `htooaungwin.com` even if test caught it. The whole point of the test account was being skipped.
+- The prod deploy still used the hardcoded `S3_BUCKET: h4wops.com` from Chunk 1, and never invalidated CloudFront, so visitors could get the old site after a deploy. The test deploy did both properly.
+- The same OIDC setup was copy-pasted into seven jobs.
+- Step 14 was only half done. A Lambda-only change ran the unit tests and then deployed nothing.
+
+The new version is one straight line:
+
+```
+unit_test → apply_test → build_test → deploy_test → smoke_test
+          → plan_prod → [manual] apply_prod → build_prod → deploy_prod → smoke_prod
+```
+
+Test is fully automatic, which is what finally closes step 14: push Python, tests pass, it's deployed to test with no clicking. Prod has one manual gate, right after `plan_prod` so I can read the diff first. If anything fails, everything after it stops, so prod is never even offered unless test passed. Each step is written once as a template and test and prod just pick an account, so the file got about 80 lines shorter. Merge requests only run unit tests now (my trust policy only allows `ref:main` anyway).
+
+#### It failed twice on the first run, for two different reasons
+
+The first failure was `apply_test`:
+
+```text
+Error: Error acquiring the state lock
+workspace already locked (lock ID: "haw-org/cloudresumechallenge-haw-test")
+```
+
+Something was holding the HCP test workspace. None of the earlier pipelines ran Terraform, so it wasn't CI, and I still don't know what took it. I logged into HCP Terraform, force-unlocked the workspace, retried, and it passed. In hindsight that was a gamble. The lock exists so two runs can't write the state at the same time, and if a real run had been holding it, unlocking could have let two writers corrupt the state. Next time I check who HCP says is holding the lock before I unlock anything.
+
+The second one was the real lesson. `apply_prod` failed with:
+
+```text
+Error: reading IAM Role Policy Attachment
+(gitlab_ci_deploy:arn:aws:iam::aws:policy/ReadOnlyAccess): empty result
+```
+
+The plan right above it said `1 to add, 2 to change, 3 to destroy`, and one of the destroys was a `gitlab_ci_plan` role I'd created on 2 September. I'd been splitting the CI role into a read-only plan role and the deploy role, and I ran `terraform apply` from my laptop with that version of `oidc.tf`. I never committed it. So prod had the split, `main` didn't, and the first time CI applied `main` it did exactly what Terraform is supposed to do: make reality match the code. It deleted the plan role, and because I'd also renamed the ReadOnlyAccess attachment, it tried to delete the attachment under the old name and create it under the new name. Same real attachment, two names, and Terraform ran both at the same time. The create attached the policy, the destroy detached it, and the create's check found nothing. Test had the exact same drift and passed only because the timing went the other way.
+
+Test also quietly picked up two other changes from the same drift: the alarm email subscription got recreated, so it needs confirming again, and the Slack webhook in SSM got replaced with whatever is in the CI variables. I checked the webhook and it's the current one, so that part was harmless.
+
+The fix was just a retry, but I didn't retry blind. The failed run had already finished everything except the one attachment, so I re-ran `plan_prod` first and it showed `1 to add, 0 to change, 0 to destroy`. Nothing left to race against. Retried `apply_prod`, and `build_prod`, `deploy_prod` and `smoke_prod` all went green. Both accounts, end to end.
+
+What I'm taking from this:
+
+- **Never apply from my laptop without committing.** CI applies `main`, so anything I only applied locally will get reverted the next time it runs. This is the same family of mistake as the July teardown taking out the CI identity. Things that exist in AWS but not in git will eventually be treated as garbage.
+- **The manual gate only works if I read the plan.** `3 to destroy` was right there before I clicked.
+- **Renaming a resource in Terraform is a delete plus a create** unless you add a `moved` block. `moved { from = aws_iam_role_policy_attachment.aws_resources_readonly_deploy  to = aws_iam_role_policy_attachment.aws_resources_readonly }` would have told Terraform it was the same attachment, and there would have been nothing to race.
+
+I decided not to bring the plan role back. Nothing uses it now, since merge requests don't run Terraform, and its trust policy allowed `ref:*`, meaning any branch's pipeline could read my AWS accounts. Removing it means only `main` can assume anything. If I ever take merge requests from other people, it comes back, committed this time.
+
+Still broken: `destroy_test`. Terraform refuses a destroy plan that includes `prevent_destroy` resources, and the OIDC provider and CI role have it. The real fix is moving those two into their own state, which I wrote down as a "more time" item back in Chunk 4 and still haven't done.
