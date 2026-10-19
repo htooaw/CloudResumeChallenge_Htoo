@@ -29,10 +29,10 @@ variables:
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes: &relevant_paths
-        - lambda/**
-        - infra/**
-        - portfolio/**
-        - tests/**
+        - lambda/**/*
+        - infra/**/*
+        - portfolio/**/*
+        - tests/**/*
         - .gitlab-ci.yml
 
 # ---------------------------------------------------------------------------
