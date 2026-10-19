@@ -77,6 +77,7 @@ export type Project = {
   stack: string[];
   repo?: string;
   demo?: string;
+  blog?: string;
   accent: 'orange' | 'lime';
 };
 
@@ -100,10 +101,11 @@ export const projects: Project[] = [
       'CloudWatch alarms route through SNS and a notifier Lambda to Slack; the webhook is stored in SSM Parameter Store.',
       'CloudFront Origin Access Control keeps the S3 bucket private, while Terraform prevent_destroy rules protect the CI identity resources.',
     ],
-    evidence: ['Core CRC build live', 'Test + production environments', 'Unit + Playwright tests', 'Final blog post pending'],
+    evidence: ['Core CRC build live', 'Test + production environments', 'Unit + Playwright tests', 'Blog post published'],
     stack: ['AWS', 'Terraform', 'HCP Terraform', 'GitLab CI', 'Next.js', 'TypeScript', 'Python', 'Lambda', 'DynamoDB', 'CloudWatch'],
     repo: 'https://gitlab.com/h4w1/cloudresumechallenge-haw',
     demo: 'https://htooaungwin.com',
+    blog: 'https://dev.to/htooaw/my-cloud-resume-challenge-the-devops-way-2abh',
     accent: 'orange',
   },
   {

@@ -35,6 +35,11 @@ function ProjectCaseStudy({ project, index }: { project: Project; index: number 
               Live <Icon name="external" />
             </a>
           )}
+          {project.blog && (
+            <a href={project.blog} target="_blank" rel="noopener noreferrer" aria-label={`${project.name} blog post`}>
+              Blog <Icon name="external" />
+            </a>
+          )}
         </div>
       </header>
 
