@@ -23,8 +23,13 @@ esac
 
 terraform workspace select "$WORKSPACE" > /dev/null
 
-echo "→ workspace: $WORKSPACE"
-echo "→ AWS_PROFILE: $AWS_PROFILE"
+if [ "$ENV" = "prod" ]; then
+  echo -e "\033[1;31m→ workspace: $WORKSPACE\033[0m"
+  echo -e "\033[1;31m→ AWS_PROFILE: $AWS_PROFILE\033[0m"
+else
+  echo -e "\033[1;32m→ workspace: $WORKSPACE\033[0m"
+  echo -e "\033[1;32m→ AWS_PROFILE: $AWS_PROFILE\033[0m"
+fi
 echo
 
 case "$1" in
@@ -35,12 +40,3 @@ case "$1" in
     terraform "$@"
     ;;
 esac
-
-
-if [ "$ENV" = "prod" ]; then
-  echo -e "\033[1;31m→ workspace: $WORKSPACE\033[0m"
-  echo -e "\033[1;31m→ AWS_PROFILE: $AWS_PROFILE\033[0m"
-else
-  echo -e "\033[1;32m→ workspace: $WORKSPACE\033[0m"
-  echo -e "\033[1;32m→ AWS_PROFILE: $AWS_PROFILE\033[0m"
-fi
