@@ -157,6 +157,17 @@ Locally, the same `TF_VAR_*` values come from `test.tfvars` and `prod.tfvars`, w
 
 org-formation follows the same rule. Its YAML keeps placeholders such as `<management-account-id>`, and `org-formation/ofn` fills them in from a gitignored `values.local` in a temporary copy before running. `values.local.example` lists the keys it needs.
 
+### The AWS Organization (org-formation)
+
+[org-formation-cli](https://github.com/org-formation/org-formation-cli) is an open-source tool that manages AWS Organizations as code, the way Terraform manages resources inside an account. It sits apart from the Terraform because the Organization is one level above it. The accounts and the SSO access have to exist before Terraform can deploy anything into them.
+
+| File | What it defines |
+|---|---|
+| `organization.yml` | The management account, the Test and Prod OUs, and one account in each |
+| `sso-assignments.yml` | An admin permission set with 4-hour sessions, and which accounts my SSO user can use it in. Deployed as a CloudFormation stack in the management account |
+| `organization-tasks.yml` | Which of the two to apply, and in what order |
+| `ofn` | Runs org-formation with the real IDs filled in (see Configuration) |
+
 ## Security
 
 | Who | How they get into AWS | What they can do |
