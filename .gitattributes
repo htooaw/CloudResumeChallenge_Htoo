@@ -1,0 +1,3 @@
+# Leave the Next.js frontend out of GitHub's language bar, so it reflects the
+# infrastructure (Terraform) and the Lambdas (Python) instead of the website code.
+portfolio/** linguist-vendored
