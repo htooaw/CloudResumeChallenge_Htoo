@@ -18,8 +18,8 @@ test('homepage exposes the primary portfolio content', async ({ page }) => {
   await page.goto(SITE_URL);
 
   await expect(page).toHaveTitle(/Htoo Aung Win/);
-  await expect(page.getByRole('heading', { level: 1, name: /Cloud & DevOps Engineer/i })).toBeVisible();
-  await expect(page.getByRole('heading', { level: 2, name: /Cloud and infrastructure projects/i })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Htoo Aung Win' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 2, name: 'Project' })).toBeVisible();
   await expect(page.getByRole('heading', { level: 3, name: 'Cloud Resume Challenge' })).toBeVisible();
 });
 
@@ -69,11 +69,11 @@ test('visitor counter increments across page loads', async ({ page }) => {
   expect(after).toBeGreaterThan(before);
 });
 
-test('mobile navigation and page remain usable without horizontal overflow', async ({ page }) => {
+test('mobile profile links and page remain usable without horizontal overflow', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(SITE_URL);
 
-  await expect(page.getByRole('navigation', { name: 'Primary navigation' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Profile links' })).toBeVisible();
   const dimensions = await page.evaluate(() => ({
     viewport: document.documentElement.clientWidth,
     content: document.documentElement.scrollWidth,
