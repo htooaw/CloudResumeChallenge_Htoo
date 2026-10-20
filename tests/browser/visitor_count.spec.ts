@@ -27,7 +27,7 @@ test('resume and external profile links are real destinations', async ({ page })
   await page.goto(SITE_URL);
 
   const resume = page.getByRole('link', { name: /résumé/i }).first();
-  await expect(resume).toHaveAttribute('href', '/Htoo_Aung_Win_Resume_DevOps.pdf');
+  await expect(resume).toHaveAttribute('href', '/HtooAungWin_resume.pdf');
 
   const placeholderLinks = page.locator('a[href*="your-username"], a[href*="example.com"]');
   await expect(placeholderLinks).toHaveCount(0);

@@ -7,7 +7,7 @@ export const profile = {
   github: 'https://github.com/htooaw',
   linkedin: 'https://linkedin.com/in/htooaungwin',
   email: 'haw.connect@gmail.com',
-  resumePdf: '/Htoo_Aung_Win_Resume_DevOps.pdf',
+  resumePdf: '/HtooAungWin_resume.pdf',
 };
 
 export const project = {
