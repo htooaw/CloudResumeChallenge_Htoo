@@ -4,6 +4,7 @@ My resume website, built as the [Cloud Resume Challenge](https://cloudresumechal
 
 - **Live site:** https://htooaungwin.com
 - **Blog post:** [My Cloud Resume Challenge, the DevOps way](https://dev.to/htooaw/my-cloud-resume-challenge-the-devops-way-2abh)
+- **Pipeline** runs on GitLab CI, where this repo lives. The GitHub copy is a read-only mirror, so it shows no workflow runs.
 
 ## Architecture
 

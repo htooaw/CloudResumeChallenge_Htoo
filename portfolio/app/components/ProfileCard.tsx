@@ -26,7 +26,7 @@ export function ProfileCard() {
       <p className="profile-location">Based in {profile.location}</p>
 
       <div className="profile-links" aria-label="Social links">
-        <a href={profile.gitlab} target="_blank" rel="noopener noreferrer" aria-label="GitLab repository">
+        <a href={profile.github} target="_blank" rel="noopener noreferrer" aria-label="GitHub profile">
           <Icon name="git" />
         </a>
         <a href={profile.linkedin} target="_blank" rel="noopener noreferrer" aria-label="LinkedIn profile">
