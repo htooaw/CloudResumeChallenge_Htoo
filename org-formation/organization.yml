@@ -13,18 +13,20 @@ Organization:
   OrganizationRoot:
     Type: OC::ORG::OrganizationRoot
 
+  # Logical IDs keep the old "Sandbox" name on purpose: org-formation tracks
+  # resources by logical ID, so renaming them could look like remove + add.
   SandboxOU:
     Type: OC::ORG::OrganizationalUnit
     Properties:
-      OrganizationalUnitName: Sandbox
+      OrganizationalUnitName: Prod
       Accounts:
         - Ref: SandboxAccount
 
   SandboxAccount:
     Type: OC::ORG::Account
     Properties:
-      AccountName: sandbox-account
-      RootEmail: <sandbox-root-email>
+      AccountName: prod-account   # renamed in the console; org-formation can't rename accounts
+      RootEmail: <prod-root-email>
       Alias: sandbox-account
 
 

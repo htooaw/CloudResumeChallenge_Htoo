@@ -14,6 +14,7 @@ out/
 # Secrets and env
 .env
 .env.local
+org-formation/values.local
 *.pem
 *.key
 

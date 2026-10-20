@@ -1,0 +1,9 @@
+# Copy to values.local (gitignored) and fill in the real values.
+# Format: <placeholder>=value, one per line, no quotes, no spaces around =
+<management-account-id>=
+<org-root-email>=
+<prod-root-email>=
+<test-root-email>=
+<identity-store-id>=
+<sso-instance-arn>=
+<admin-user-principal-id>=

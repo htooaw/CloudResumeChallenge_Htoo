@@ -38,5 +38,19 @@ Resources:
       PermissionSetArn: !GetAtt AdministratorAccessPermissionSet.PermissionSetArn
       PrincipalId: !Ref AdminUserPrincipalId
       PrincipalType: USER
-      TargetId: '<test-account-id>'
+      TargetId: !Ref TestAccount   # org-formation resolves the account ID
+      TargetType: AWS_ACCOUNT
+
+  # prod-account (logical ID SandboxAccount, see organization.yml). The resource
+  # name keeps "Sandbox" because renaming it would make CloudFormation replace it.
+  HawGeneralAdminSandboxAccount:
+    OrganizationBinding:
+      IncludeMasterAccount: true
+    Type: AWS::SSO::Assignment
+    Properties:
+      InstanceArn: !Ref InstanceArn
+      PermissionSetArn: !GetAtt AdministratorAccessPermissionSet.PermissionSetArn
+      PrincipalId: !Ref AdminUserPrincipalId
+      PrincipalType: USER
+      TargetId: !Ref SandboxAccount
       TargetType: AWS_ACCOUNT

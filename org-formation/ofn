@@ -1,0 +1,42 @@
+#!/bin/bash
+# Local wrapper: ./ofn <org-formation command> [args...]
+# The YAML in the repo keeps placeholders like <management-account-id>.
+# This copies it to a temp folder, fills in the real values from values.local
+# (gitignored), and runs org-formation there against the management account.
+set -euo pipefail
+
+cd "$(dirname "$0")"
+
+if [ $# -eq 0 ]; then
+  echo "Usage: ./ofn <org-formation command> [args...]"
+  echo "  e.g. ./ofn print-stacks sso-assignments.yml --stack-name SsoAssignments"
+  exit 1
+fi
+
+if [ ! -f values.local ]; then
+  echo "Missing org-formation/values.local. Copy values.local.example and fill it in."
+  exit 1
+fi
+
+WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
+cp ./*.yml "$WORK"/
+
+# each line: <placeholder>=real value
+while IFS='=' read -r key value || [ -n "$key" ]; do
+  case "$key" in ''|\#*) continue ;; esac
+  for f in "$WORK"/*.yml; do
+    KEY="$key" VALUE="$value" perl -pi -e 's/\Q$ENV{KEY}\E/$ENV{VALUE}/g' "$f"
+  done
+done < values.local
+
+if grep -nE '<[a-z-]+>' "$WORK"/*.yml; then
+  echo "Placeholders above have no value in values.local. Nothing was run."
+  exit 1
+fi
+
+echo -e "\033[1;33m→ AWS_PROFILE: haw-general (management account)\033[0m"
+echo
+
+cd "$WORK"
+npx -y aws-organization-formation@1.0.17 "$@" --profile haw-general

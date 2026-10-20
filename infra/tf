@@ -6,7 +6,7 @@ shift
 
 case "$ENV" in
   prod)
-    export AWS_PROFILE=haw-sandbox
+    export AWS_PROFILE=haw-prod
     WORKSPACE=cloudresumechallenge-haw-prod
     TFVARS=prod.tfvars
     ;;

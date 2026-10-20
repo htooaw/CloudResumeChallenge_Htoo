@@ -65,7 +65,7 @@ If any job fails, everything after it stops.
 
 | | Test | Prod |
 |---|---|---|
-| AWS account | test account (Test OU) | prod account (Sandbox OU) |
+| AWS account | test account (Test OU) | prod account (Prod OU) |
 | HCP workspace | `cloudresumechallenge-haw-test` | `cloudresumechallenge-haw-prod` |
 | Deploys | automatically on push | after `plan_prod` and a manual `apply_prod` |
 | Domain and TLS | default CloudFront domain | `htooaungwin.com` with Route 53 + ACM |
@@ -155,6 +155,8 @@ Every value is a GitLab CI variable, none of them in the repo. The `TF_VAR_*` on
 
 Locally, the same `TF_VAR_*` values come from `test.tfvars` and `prod.tfvars`, which are gitignored.
 
+org-formation follows the same rule. Its YAML keeps placeholders such as `<management-account-id>`, and `org-formation/ofn` fills them in from a gitignored `values.local` in a temporary copy before running. `values.local.example` lists the keys it needs.
+
 ## Security
 
 | Who | How they get into AWS | What they can do |
@@ -181,6 +183,7 @@ Locally, the same `TF_VAR_*` values come from `test.tfvars` and `prod.tfvars`, w
 │   └── tf              local wrapper: ./tf {prod|test} <command>
 ├── tests/browser/      Playwright smoke tests
 ├── org-formation/      AWS Organization, OUs and SSO access as code
+│   └── ofn             local wrapper: ./ofn <command>, fills in real values from a gitignored file
 ├── docs/               architecture diagrams
 └── .gitlab-ci.yml      the pipeline
 ```
@@ -224,7 +227,6 @@ cd tests/browser && npm install && SITE_URL=https://htooaungwin.com npx playwrig
 - **The notifier Lambda can't write logs**, and its Slack request has no timeout.
 - **No security scanning or Terraform linting in CI yet.**
 - **Provider versions aren't locked.** The lock file is gitignored.
-- **The prod account lives in an OU named "Sandbox".** It works, but the naming should say production.
 
 ## More
 
