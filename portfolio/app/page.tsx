@@ -1,6 +1,6 @@
 import { education, experience, recognition } from '@/lib/data';
 import { Certifications } from './components/Certifications';
-import { Project } from './components/Project';
+import { Projects } from './components/Projects';
 import { Sidebar } from './components/Sidebar';
 import { Timeline } from './components/Timeline';
 
@@ -11,7 +11,7 @@ export default function Home() {
       <div className="page">
         <Sidebar />
         <main id="main-content">
-          <Project />
+          <Projects />
           <Timeline id="experience" title="Experience" entries={experience} />
           <Timeline id="education" title="Education" entries={education} />
           <Certifications />

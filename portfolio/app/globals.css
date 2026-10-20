@@ -195,6 +195,20 @@ li {
   font-size: 15px;
 }
 
+.project + .project {
+  margin-top: 44px;
+  padding-top: 32px;
+  border-top: 1px dashed var(--line);
+}
+
+.tag {
+  margin-left: 10px;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
 .minor {
   margin: 22px 0 4px;
   font-size: 14px;

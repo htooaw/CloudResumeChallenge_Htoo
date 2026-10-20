@@ -19,7 +19,7 @@ test('homepage exposes the primary portfolio content', async ({ page }) => {
 
   await expect(page).toHaveTitle(/Htoo Aung Win/);
   await expect(page.getByRole('heading', { level: 1, name: 'Htoo Aung Win' })).toBeVisible();
-  await expect(page.getByRole('heading', { level: 2, name: 'Project' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 2, name: 'Projects' })).toBeVisible();
   await expect(page.getByRole('heading', { level: 3, name: 'Cloud Resume Challenge' })).toBeVisible();
 });
 

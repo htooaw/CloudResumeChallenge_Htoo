@@ -10,23 +10,57 @@ export const profile = {
   resumePdf: '/HtooAungWin_resume.pdf',
 };
 
-export const project = {
-  name: 'Cloud Resume Challenge',
-  challengeUrl: 'https://cloudresumechallenge.dev',
-  live: 'https://htooaungwin.com',
-  blog: 'https://dev.to/htooaw/my-cloud-resume-challenge-the-devops-way-2abh',
-  code: 'https://github.com/htooaw/CloudResumeChallenge_Htoo',
-  built: [
-    'Next.js static site in a private S3 bucket, served by CloudFront through Origin Access Control, with Route 53 and an ACM certificate.',
-    'Visitor counter on an API Gateway HTTP API, a Python Lambda and DynamoDB, incremented atomically.',
-    'About 40 AWS resources in Terraform. One codebase for test and prod, state in HCP Terraform.',
-    'Test and prod are separate AWS accounts in one AWS Organization, managed as code with org-formation.',
-    'GitLab CI with OIDC, so no AWS keys are stored. Every push runs unit tests, a test deploy and Playwright smoke tests. Prod waits for one manual approval.',
-    'Five CloudWatch alarms send alerts through SNS to email and, through a notifier Lambda, to Slack.',
-  ],
-  stack: ['AWS', 'Terraform', 'HCP Terraform', 'GitLab CI', 'Python', 'Next.js', 'Playwright', 'org-formation'],
+export type ProjectLink = { label: string; href: string };
+
+export type ProjectEntry = {
+  name: string;
+  tag?: string;
+  links: ProjectLink[];
+  intro: string;
+  // the first occurrence of `text` inside `intro` is rendered as a link
+  introLink?: { text: string; href: string };
+  listHeading: string;
+  items: string[];
+  stack: string[];
 };
 
+export const projects: ProjectEntry[] = [
+  {
+    name: 'Cloud Resume Challenge',
+    links: [
+      { label: 'Live', href: 'https://htooaungwin.com' },
+      { label: 'Blog post', href: 'https://dev.to/htooaw/my-cloud-resume-challenge-the-devops-way-2abh' },
+      { label: 'Code', href: 'https://github.com/htooaw/CloudResumeChallenge_Htoo' },
+    ],
+    intro:
+      'My résumé site, built end to end on AWS for the Cloud Resume Challenge, a 16-step project by Forrest Brazeal, plus most of its DevOps mods. You are reading the output of its pipeline.',
+    introLink: { text: 'Cloud Resume Challenge', href: 'https://cloudresumechallenge.dev' },
+    listHeading: "How it's built",
+    items: [
+      'Next.js static site in a private S3 bucket, served by CloudFront through Origin Access Control, with Route 53 and an ACM certificate.',
+      'Visitor counter on an API Gateway HTTP API, a Python Lambda and DynamoDB, incremented atomically.',
+      'About 40 AWS resources in Terraform. One codebase for test and prod, state in HCP Terraform.',
+      'Test and prod are separate AWS accounts in one AWS Organization, managed as code with org-formation.',
+      'GitLab CI with OIDC, so no AWS keys are stored. Every push runs unit tests, a test deploy and Playwright smoke tests. Prod waits for one manual approval.',
+      'Five CloudWatch alarms send alerts through SNS to email and, through a notifier Lambda, to Slack.',
+    ],
+    stack: ['AWS', 'Terraform', 'HCP Terraform', 'GitLab CI', 'Python', 'Next.js', 'Playwright', 'org-formation'],
+  },
+  {
+    name: 'SLEUTH',
+    tag: 'Team project, SIT',
+    links: [{ label: 'Code', href: 'https://github.com/htooaw/sleuth-telegram-scam-checker' }],
+    intro:
+      'Scam Likelihood Estimation Using Telegram History. A buyer shares their chat with a Telegram seller, and SLEUTH returns a risk score from 0 to 5, the warning signs it found, and advice on what to do next. Built by a team of six.',
+    listHeading: 'My part',
+    items: [
+      'The DevOps side: the Docker setup and the CI/CD pipeline in GitHub Actions, which builds the image, runs the tests inside the container, health-checks the web app and publishes the image to GHCR.',
+      'The command-line app, and a rewrite of the automated tests in pytest so the pipeline runs them on every change.',
+      'The three Gemini stages, with a teammate.',
+    ],
+    stack: ['Python', 'Gemini', 'Telethon', 'Streamlit', 'Docker', 'GitHub Actions', 'GHCR'],
+  },
+];
 export type Entry = {
   when: string;
   title: string;
